@@ -825,7 +825,7 @@ class GameEngine {
         this.bullets = []; this.enemies = []; this.particles = []; this.pickups = [];
         this.score = 0; this.combo = 0; this.comboTimer = 0; this.maxComboTimer = 3.5;
         this.shakeAmount = 0; this.time = 0; this.spawnTimer = 0; this.difficulty = 1;
-        this.wave = 0; this.waveState = 'BREAK'; this.waveTimer = 1.5; this.queue = [];
+        this.wave = 0; this.waveState = 'BREAK'; this.waveTimer = 2.5; this.player.iframes = 2; this.queue = [];
         this.slashes = []; this.beams = []; this.ghosts = []; this.hpGhost = 100; this.bossHp = 1;
         
         this.generateObstacles();
@@ -1226,11 +1226,11 @@ Object.assign(GameEngine.prototype, {
             ['MINIGUN', 'RAILGUN'].forEach(k => { const s = this.freeSpot(); this.pickups.push(new Pickup(s.x, s.y, k)); });
         } else {
             this.banner('WAVE ' + w, C.cyan);
-            push(0, 1, 0.45, 5 + w * 2);
-            if (w > 1) push(2, 1, 0.8, Math.floor(w / 2));
-            if (w >= 2) push(3, 15 + Math.floor(Math.random() * 6), 1, Math.ceil(w / 3));
-            if (w >= 3) push(1, 1, 0.8, Math.floor(w / 3));
-            if (w >= 4) push(4, 1, 1, Math.floor(w / 4));
+            push(0, 1, 0.9 - Math.min(0.45, w * 0.05), 3 + Math.ceil(w * 1.6));
+            if (w > 2) push(2, 1, 1, Math.floor((w - 1) / 2));
+            if (w >= 3) push(3, 15 + Math.floor(Math.random() * 6), 1.5, Math.ceil((w - 1) / 3));
+            if (w >= 4) push(1, 1, 1.2, Math.floor((w - 1) / 3));
+            if (w >= 6) push(4, 1, 1.5, Math.floor((w - 2) / 4));
         }
         q.sort(() => Math.random() - 0.5);
         this.queue = q;
@@ -1239,13 +1239,13 @@ Object.assign(GameEngine.prototype, {
         if (this.waveState === 'BREAK') { if ((this.waveTimer -= dt) <= 0) this.startWave(); return; }
         this.spawnTimer -= dt;
         if (this.queue.length && this.spawnTimer <= 0) {
-            const s = this.queue.shift(), p = this.edge(), hp = 1 + this.wave * 0.18;
-            for (let i = 0; i < s.n; i++) this.enemies.push(new Enemy(s.t, p.x + (Math.random() - 0.5) * 120, p.y + (Math.random() - 0.5) * 120, hp));
+            const s = this.queue.shift(), p = this.edge(), hp = 0.7 + this.wave * 0.15, sk = Math.min(1, 0.6 + this.wave * 0.07);
+            for (let i = 0; i < s.n; i++) { const en = new Enemy(s.t, p.x + (Math.random() - 0.5) * 120, p.y + (Math.random() - 0.5) * 120, hp); if (s.t !== 3 && !en.boss) en.speed *= sk; this.enemies.push(en); }
             this.spawnTimer = s.d * Math.max(0.35, 1 - this.wave * 0.04);
         }
         if (!this.queue.length && !this.enemies.length) {
             this.waveState = 'BREAK'; this.waveTimer = 3;
-            this.banner('WAVE ' + this.wave + ' CLEARED', C.green);
+            this.banner('WAVE ' + this.wave + ' CLEARED', C.green); audio.jingle();
             this.player.hp = Math.min(this.player.maxHp, this.player.hp + 15);
             if (Math.random() < 0.6) { const s = this.freeSpot(), k = ['SHOTGUN', 'MINIGUN', 'KATANA', 'RAILGUN', 'HEALTH']; this.pickups.push(new Pickup(s.x, s.y, k[Math.floor(Math.random() * k.length)])); }
         }
@@ -1289,6 +1289,8 @@ Object.assign(GameEngine.prototype, {
         const p = this.player;
         this.hpGhost = this.hpGhost > p.hp ? this.hpGhost + (p.hp - this.hpGhost) * Math.min(1, dt * 2.5) : p.hp;
         UI2.hpGhost.style.width = Math.max(0, this.hpGhost / p.maxHp * 100) + '%';
+        for (const k of this.pickups) { const d = dist(k.x, k.y, p.x, p.y); if (d > 1 && d < 140 && this.state === 'PLAYING') { k.x += (p.x - k.x) / d * 420 * dt; k.y += (p.y - k.y) / d * 420 * dt; } }
+        document.body.classList.toggle('lowhp', this.state === 'PLAYING' && p.hp < 30);
         const boss = this.enemies.find(e => e.boss && !e.dead);
         UI2.bossBar.classList.toggle('hidden', !boss || this.state !== 'PLAYING');
         if (boss) { this.bossHp += (boss.hp / boss.maxHp - this.bossHp) * Math.min(1, dt * 8); UI2.bossFill.style.width = Math.max(0, this.bossHp * 100) + '%'; } else this.bossHp = 1;
@@ -1334,6 +1336,83 @@ const _update = GameEngine.prototype.update;
 GameEngine.prototype.update = function(dt) { _update.call(this, dt); this.postUpdate(dt); };
 // ========================================================
  
+// ===================== PACK 2: obstáculos adaptativos + música =====================
+GameEngine.prototype.generateObstacles = function() {
+    this.obstacles = [];
+    if (!width) return;
+    const sc = clamp(Math.min(width, height) / 800, 0.4, 1);
+    const num = (sc < 0.7 ? 3 : 4) + Math.floor(Math.random() * 3), thick = Math.max(16, 40 * sc);
+    for (let i = 0; i < num; i++) {
+        const len = (110 + Math.random() * 110) * sc + 20, horiz = Math.random() > 0.5;
+        const w = horiz ? len : thick, h = horiz ? thick : len;
+        let x, y, n = 0;
+        do { x = Math.random() * (width - w - 100) + 50; y = Math.random() * (height - h - 100) + 50; n++; }
+        while (dist(x + w / 2, y + h / 2, width / 2, height / 2) < 160 * sc + 60 && n < 50);
+        if (n < 50) this.obstacles.push(new Obstacle(x, y, w, h));
+    }
+};
+ 
+Object.assign(AudioEngine.prototype, {
+    initMusic() {
+        if (this.mus) return;
+        const c = this.ctx;
+        this.mus = c.createGain(); this.mus.gain.value = 0.6; this.mus.connect(this.master);
+        this.delay = c.createDelay(1); const fb = c.createGain(), wet = c.createGain(); fb.gain.value = 0.38; wet.gain.value = 0.35;
+        this.delay.connect(fb); fb.connect(this.delay); this.delay.connect(wet); wet.connect(this.mus);
+        this.nbuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
+        const d = this.nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    },
+    tone(t, type, f, dur, vol, cut, send, det) {
+        const c = this.ctx, o = c.createOscillator(), g = c.createGain(), fl = c.createBiquadFilter();
+        o.type = type; o.frequency.setValueAtTime(f, t); if (det) o.detune.value = det;
+        fl.type = 'lowpass'; fl.frequency.setValueAtTime(cut, t); fl.frequency.exponentialRampToValueAtTime(Math.max(150, cut * 0.3), t + dur);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(fl); fl.connect(g); g.connect(this.mus); if (send) g.connect(this.delay);
+        o.start(t); o.stop(t + dur + 0.05);
+    },
+    drum(t, kind, vol) {
+        const c = this.ctx, g = c.createGain();
+        if (kind === 'kick') {
+            const o = c.createOscillator(); o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(38, t + 0.18);
+            g.gain.setValueAtTime(0.95 * vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+            o.connect(g); g.connect(this.mus); o.start(t); o.stop(t + 0.3); return;
+        }
+        const s = c.createBufferSource(), f = c.createBiquadFilter(), hat = kind === 'hat', d = hat ? 0.04 : 0.14;
+        s.buffer = this.nbuf; f.type = hat ? 'highpass' : 'bandpass'; f.frequency.value = hat ? 7500 : 1800;
+        g.gain.setValueAtTime((hat ? 0.1 : 0.32) * vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+        s.connect(f); f.connect(g); g.connect(this.mus); s.start(t, Math.random() * 0.5, d + 0.02);
+    },
+    scheduleStep(t, s, step) {
+        const E = engine, w = E ? E.wave : 1, boss = E && E.wave % 5 === 0 && E.waveState === 'FIGHT';
+        const lvl = boss ? 3 : Math.min(3, Math.floor(w / 2)), bar = s >> 4, st = s & 15;
+        const root = [55, 43.65, 65.41, 49][bar], ch = bar === 0 ? [0, 3, 7] : [0, 4, 7], hz = (o, i) => root * o * Math.pow(2, ch[i] / 12);
+        if (st % 4 === 0) this.drum(t, 'kick', 1);
+        if (lvl >= 1 && (st === 4 || st === 12)) this.drum(t, 'clap', 1);
+        if (lvl >= 2 && bar === 3 && st > 12) this.drum(t, 'clap', 0.5);
+        if (st % 2 === 0) this.drum(t, 'hat', st % 4 === 2 ? 1 : 0.4); else if (lvl >= 2) this.drum(t, 'hat', 0.35);
+        if ([1,0,0,1,0,0,1,0,1,0,0,1,0,1,0,0][st]) this.tone(t, 'sawtooth', root * ((st === 6 || st === 13) ? 2 : 1), step * 1.6, 0.34, 350 + Math.min(E ? E.combo : 0, 30) * 40, false);
+        if (st === 0) for (const i of [0, 1, 2]) { this.tone(t, 'sawtooth', hz(4, i), step * 16, 0.03, 1100, false, -7); this.tone(t, 'sawtooth', hz(4, i), step * 16, 0.03, 1100, false, 7); }
+        if ((lvl >= 1 && st % 2 === 0) || lvl >= 2) this.tone(t, 'square', hz(8, [0, 1, 2, 1][st & 3]), step * 1.5, 0.05, 2500, true);
+        if (lvl >= 3 && (st === 0 || st === 6 || st === 10)) this.tone(t, 'sawtooth', hz(16, st === 6 ? 1 : 2), step * 3, 0.07, 3500, true);
+    },
+    scheduler() {
+        if (!this.isPlaying) return;
+        this.initMusic();
+        const E = engine, boss = E && E.wave % 5 === 0 && E.waveState === 'FIGHT';
+        const step = 60 / (boss ? 150 : 124 + Math.min(12, (E ? E.wave : 0) * 1.5)) / 4;
+        this.delay.delayTime.value = step * 3;
+        while (this.nextNoteTime < this.ctx.currentTime + 0.15) { this.scheduleStep(this.nextNoteTime, this.rhythmIndex % 64, step); this.nextNoteTime += step; this.rhythmIndex++; }
+        setTimeout(() => this.scheduler(), 25);
+    },
+    startMusic() { this.rhythmIndex = 0; this.isPlaying = true; this.nextNoteTime = this.ctx.currentTime + 0.1; this.scheduler(); },
+    jingle() {
+        if (!this.isPlaying || !this.mus) return;
+        const t = this.ctx.currentTime;
+        [0, 4, 7, 12, 16].forEach((n, i) => this.tone(t + i * 0.07, 'square', 440 * Math.pow(2, n / 12), 0.25, 0.12, 4000, true));
+    }
+});
+// ================================================================================
+ 
 let engine;
  
 function loop(timestamp) {
@@ -1353,3 +1432,8 @@ window.onload = function() {
     DOM.startBtn.addEventListener('click', () => engine.init());
     requestAnimationFrame((t) => { lastTime = t; loop(t); });
 };
+
+
+
+
+
