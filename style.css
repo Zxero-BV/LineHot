@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
 
 :root {
@@ -185,3 +186,14 @@ body, html {
 }
 .btn:active { background: var(--neon-cyan); color: var(--bg-dark); transform: scale(0.95); }
 .hidden { display: none !important; }
+ 
+/* ===== Upgrade pack ===== */
+#waveEl { color: var(--neon-cyan); font-weight: 900; font-size: 1.1rem; letter-spacing: 4px; text-shadow: 0 0 12px var(--neon-cyan); }
+#bossBar { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); width: min(70%, 520px); text-align: center; color: var(--neon-pink); font-size: .7rem; letter-spacing: 6px; text-shadow: 0 0 8px var(--neon-pink); }
+#bossBar .bar-bg { height: 16px; border-color: var(--neon-pink); }
+#bossFill { background: var(--neon-pink); box-shadow: 0 0 14px var(--neon-pink); }
+.bar-bg { overflow: hidden; clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+.bar-bg::after { content: ''; position: absolute; inset: 0; z-index: 2; background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(0,0,0,.4) 8px 10px); }
+.bar-fill { position: relative; z-index: 1; }
+#healthGhost { position: absolute; top: 0; left: 0; z-index: 0; background: #fff; opacity: .9; }
+ 
