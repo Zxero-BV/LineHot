@@ -1,3 +1,5 @@
+
+Index · HTML
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,24 +9,26 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
+ 
     <div id="gameWrapper">
         <canvas id="gameCanvas"></canvas>
     </div>
     <div id="crt-overlay" class="crt-flicker"></div>
-
+ 
     <div id="uiLayer">
         <div class="hud-top">
             <div>
                 <div class="score-container">SCORE<br><span id="scoreEl">000000</span></div>
                 <div id="highScoreEl">HI: 000000</div>
             </div>
+            <div id="waveEl">WAVE 1</div>
             <div class="combo-container" id="comboEl">x1<br>COMBO</div>
         </div>
+        <div id="bossBar" class="hidden">// BOSS //<div class="bar-bg"><div class="bar-fill" id="bossFill"></div></div></div>
         <div class="hud-bottom">
             <div class="bars-container">
                 <div style="color:white; font-size: 0.7rem;">HP</div>
-                <div class="bar-bg"><div class="bar-fill" id="healthFill"></div></div>
+                <div class="bar-bg"><div class="bar-fill" id="healthGhost"></div><div class="bar-fill" id="healthFill"></div></div>
                 <div style="color:white; font-size: 0.7rem; margin-top:5px;">DASH (Spacebar / Doble Tap)</div>
                 <div class="bar-bg"><div class="bar-fill" id="dashFill"></div></div>
             </div>
@@ -34,17 +38,17 @@
             </div>
         </div>
     </div>
-
+ 
     <div id="screens">
         <h1 class="title" id="mainTitle">NEON<br>CARNAGE</h1>
         <p class="subtitle" id="subTitle">
             <span class="highlight">PC:</span> WASD/Flechas para Mover | Ratón para Apuntar/Disparar | ESPACIO para Dash<br>
             <span class="highlight">MÓVIL:</span> Joystick Izquierdo Mueve | Derecho Apunta | Doble Tap para Dash<br><br>
-            Sobrevive. Destruye. Evita los <span style="color:var(--neon-green)">Pilares de Neón</span>.
+            Sobrevive oleadas. Derrota al jefe cada 5. Evita los <span style="color:var(--neon-green)">Pilares de Neón</span>.
         </p>
         <button class="btn" id="startBtn">JACK IN</button>
     </div>
-
+ 
     <script src="game.js"></script>
 </body>
 </html>
