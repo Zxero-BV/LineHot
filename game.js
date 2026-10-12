@@ -24,7 +24,7 @@ let width, height;
 let lastTime = 0;
 const PULSE_COOLDOWN = 5;
 const Settings = Object.assign(
-    { perf: false, volume: 0.6, vibrate: true, shake: true, showFps: false },
+    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false },
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
 function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
@@ -60,7 +60,8 @@ function haptic(ms) {
 function resize() {
     width = window.innerWidth;
     height = window.innerHeight;
-    canvas.width = width; canvas.height = height;
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
     
     if (bgCanvas.width !== width || bgCanvas.height !== height) {
         bgCanvas.width = width;
@@ -71,6 +72,8 @@ function resize() {
     }
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => { resize(); setTimeout(resize, 250); setTimeout(resize, 600); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
  
 // Utilidades Matemáticas
 function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
@@ -243,7 +246,7 @@ class AudioEngine {
     }
  
     startMusic() { this.isPlaying = true; this.music.start(); }
-    stopMusic() { this.isPlaying = false; this.music.stop(); }
+    stopMusic() { this.isPlaying = false; this.music.stop(1.8); }
  
     scheduler() {
         if (!this.isPlaying) return;
@@ -869,7 +872,7 @@ class GameEngine {
         this.state = 'PLAYING';
         
         try {
-            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
         } catch(e) {}
     }
  
@@ -1221,6 +1224,7 @@ Object.assign(GameEngine.prototype, {
     startWave() {
         const w = ++this.wave, q = [], push = (t, n, d, c) => { for (let i = 0; i < c; i++) q.push({t, n, d}); };
         this.waveState = 'FIGHT'; UI2.wave.innerText = 'WAVE ' + w;
+        audio.music.setWave(w);
         audio.music.setSection(w % 5 === 0 ? 'boss' : 'fight');
         if (w % 5 === 0) {
             this.banner('BOSS WAVE ' + w, C.red);
@@ -1291,6 +1295,7 @@ Object.assign(GameEngine.prototype, {
         const p = this.player;
         this.hpGhost = this.hpGhost > p.hp ? this.hpGhost + (p.hp - this.hpGhost) * Math.min(1, dt * 2.5) : p.hp;
         UI2.hpGhost.style.width = Math.max(0, this.hpGhost / p.maxHp * 100) + '%';
+        audio.music.setHealth(p.hp / p.maxHp);
         const boss = this.enemies.find(e => e.boss && !e.dead);
         UI2.bossBar.classList.toggle('hidden', !boss || this.state !== 'PLAYING');
         if (boss) { this.bossHp += (boss.hp / boss.maxHp - this.bossHp) * Math.min(1, dt * 8); UI2.bossFill.style.width = Math.max(0, this.bossHp * 100) + '%'; } else this.bossHp = 1;
@@ -1434,6 +1439,8 @@ const Menu = {
         });
         document.getElementById('volRange').value = Settings.volume;
         document.getElementById('volVal').innerText = Math.round(Settings.volume * 100) + '%';
+        document.getElementById('musicRange').value = Settings.music;
+        document.getElementById('musicVal').innerText = Math.round(Settings.music * 100) + '%';
     }
 };
 
@@ -1441,14 +1448,25 @@ function applySettings() {
     saveSettings();
     document.body.classList.toggle('perf', Settings.perf);
     audio.master.gain.value = Settings.volume;
+    audio.music.setLevel(Settings.music);
+    audio.music.setQuality(Settings.perf);
     document.getElementById('fpsEl').classList.toggle('hidden', !Settings.showFps);
     Menu.syncOptions();
 }
 
 function setupMenu() {
-    const startMenuMusic = () => { audio.resume(); audio.music.newRun(); audio.startMusic(); };
-    document.addEventListener('pointerdown', startMenuMusic, { once: true });
-    document.addEventListener('keydown', startMenuMusic, { once: true });
+    let musicUnlocked = false;
+    const startMenuMusic = () => {
+        audio.resume();
+        if (musicUnlocked) return;
+        musicUnlocked = true;
+        audio.music.newRun(); audio.startMusic();
+    };
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, startMenuMusic, { passive: true }));
+    // Al volver a la app (o tras una llamada) el navegador puede dejar el audio suspendido
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) { if (engine && engine.state === 'PLAYING') engine.pause(); }
+    });
     DOM.screens.addEventListener('click', (e) => {
         const b = e.target.closest('button');
         if (!b) return;
@@ -1467,6 +1485,9 @@ function setupMenu() {
     });
     document.getElementById('volRange').addEventListener('input', (e) => {
         Settings.volume = parseFloat(e.target.value); applySettings();
+    });
+    document.getElementById('musicRange').addEventListener('input', (e) => {
+        Settings.music = parseFloat(e.target.value); applySettings();
     });
     document.getElementById('pauseBtn').addEventListener('click', () => engine.togglePause());
 }
