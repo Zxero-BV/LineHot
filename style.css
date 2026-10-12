@@ -328,3 +328,92 @@ html, body {
     .btn { padding: 8px 20px; font-size: 1rem; }
     .btn-sm { padding: 6px 14px; font-size: .85rem; }
 }
+
+/* =====================================================================
+   v3 · COMODIDAD EN MÓVIL
+   - body.touch (lo pone game.js en pantallas táctiles) activa el HUD compacto.
+   - HP y arma suben arriba: los pulgares tapan las esquinas de abajo.
+   - Botón de PULSO circular con anillo de recarga, cerca del pulgar.
+   ===================================================================== */
+#waveEl {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: max(var(--pad), var(--sat)); white-space: nowrap; text-align: center; pointer-events: none;
+}
+.hud-right { display: flex; align-items: flex-start; gap: 10px; }
+.pause-btn {
+    align-self: auto; touch-action: manipulation;
+    width: clamp(40px, 11vmin, 48px); height: clamp(40px, 11vmin, 48px); font-size: .85rem;
+}
+
+/* Botón de pulso (solo táctil) */
+.pulse-btn {
+    --p: 100;
+    --pulse-size: clamp(64px, 17vmin, 84px);
+    display: none; position: absolute; z-index: 60; pointer-events: auto;
+    width: var(--pulse-size); height: var(--pulse-size);
+    padding: 0; border: 0; border-radius: 50%;
+    right: max(var(--pad), var(--sar));
+    bottom: calc(max(var(--pad), var(--sab)) + clamp(96px, 24vh, 190px));
+    background: conic-gradient(var(--neon-cyan) calc(var(--p) * 1%), rgba(255, 255, 255, .14) 0);
+    color: #fff; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: .62rem; letter-spacing: 1px;
+    touch-action: none; cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 243, 255, .25);
+    transition: transform .08s;
+}
+.pulse-btn::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: rgba(5, 1, 10, .82); }
+.pulse-btn::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; }   /* zona de toque más grande que el dibujo */
+.pulse-btn span { position: relative; z-index: 1; text-shadow: 0 0 6px var(--neon-cyan); }
+.pulse-btn:active { transform: scale(.92); }
+.pulse-btn.ready { animation: pulse-ready 1.4s ease-in-out infinite; }
+.pulse-btn.deny { animation: pulse-deny .18s linear; }
+@keyframes pulse-ready {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 243, 255, .5); }
+    50% { box-shadow: 0 0 24px rgba(0, 243, 255, .95); }
+}
+@keyframes pulse-deny {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+body.touch .pulse-btn { display: flex; align-items: center; justify-content: center; }
+body.pulse-left .pulse-btn { right: auto; left: max(var(--pad), var(--sal)); }
+body.perf .pulse-btn { animation: none; box-shadow: none; }
+
+/* HUD compacto en táctil */
+body.touch .score-container { font-size: 13px; letter-spacing: 1px; line-height: 1.2; }
+body.touch #highScoreEl { font-size: 10px; }
+body.touch #waveEl { font-size: 13px; letter-spacing: 3px; }
+body.touch .combo-container { font-size: 16px; line-height: 1.15; }
+body.touch .hud-bottom {
+    position: absolute; width: auto; align-items: flex-start; pointer-events: none;
+    top: calc(max(var(--pad), var(--sat)) + 50px);
+    left: max(var(--pad), var(--sal)); right: max(var(--pad), var(--sar));
+}
+body.touch .bars-container { width: 36%; max-width: 150px; }
+body.touch .bars-container .bar-bg { height: 8px; }
+body.touch .hud-label { font-size: 9px; }
+body.touch .dash-block { display: none; }
+body.touch .weapon-text { font-size: 12px; }
+body.touch #weaponAmmo { font-size: 15px; }
+body.touch #bossBar { top: calc(max(var(--pad), var(--sat)) + 78px); width: min(60%, 420px); font-size: .6rem; letter-spacing: 4px; }
+body.touch #bossBar .bar-bg { height: 12px; }
+body.touch #fpsEl { top: calc(max(var(--pad), var(--sat)) + 90px); right: auto; left: max(var(--pad), var(--sal)); }
+
+/* Ajustes solo para táctil / aviso de rotación */
+body:not(.touch) .touch-only { display: none; }
+.rotate-hint { display: none; color: var(--neon-yellow); font-size: .75rem; text-align: center; margin-bottom: 14px; }
+@media (pointer: coarse) and (orientation: portrait) { .rotate-hint { display: block; } }
+
+/* Móvil en horizontal: menús en dos columnas, sin scroll innecesario */
+@media (max-height: 520px) and (orientation: landscape) {
+    #pMain, #pOver {
+        display: grid; grid-template-columns: 1fr minmax(220px, 320px);
+        column-gap: clamp(16px, 5vw, 48px); align-items: center; justify-items: center;
+        width: min(100%, 860px);
+    }
+    #pMain .title, #pOver .title { grid-column: 1; font-size: clamp(1.8rem, 12vh, 3.2rem); }
+    #pMain .subtitle, #pOver .subtitle, #pMain .record { grid-column: 1; margin-bottom: 0; }
+    #pMain .menu-col, #pOver .menu-col { grid-column: 2; grid-row: 1 / span 4; }
+    #pOptions .menu-col { display: grid; grid-template-columns: 1fr 1fr; width: min(96%, 760px); gap: 8px 12px; }
+    #pOptions .menu-col .hint { order: 99; grid-column: 1 / -1; max-width: 100%; }
+}
