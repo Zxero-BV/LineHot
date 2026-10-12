@@ -1,6 +1,3 @@
-
-
-Index · HTML
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,12 +7,12 @@ Index · HTML
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
+
     <div id="gameWrapper">
         <canvas id="gameCanvas"></canvas>
     </div>
     <div id="crt-overlay" class="crt-flicker"></div>
- 
+
     <div id="uiLayer">
         <div class="hud-top">
             <div>
@@ -26,35 +23,87 @@ Index · HTML
             <div class="combo-container" id="comboEl">x1<br>COMBO</div>
         </div>
         <div id="bossBar" class="hidden">// BOSS //<div class="bar-bg"><div class="bar-fill" id="bossFill"></div></div></div>
+        <div id="fpsEl" class="hidden">0 FPS</div>
         <div class="hud-bottom">
             <div class="bars-container">
-                <div style="color:white; font-size: 0.7rem;">HP</div>
+                <div class="hud-label">HP</div>
                 <div class="bar-bg"><div class="bar-fill" id="healthGhost"></div><div class="bar-fill" id="healthFill"></div></div>
-                <div style="color:white; font-size: 0.7rem; margin-top:5px;">DASH (Spacebar / Doble Tap)</div>
+                <div class="hud-label" style="margin-top:5px;">PULSO (Espacio / Doble Tap)</div>
                 <div class="bar-bg"><div class="bar-fill" id="dashFill"></div></div>
             </div>
+            <button id="pauseBtn" class="pause-btn" aria-label="Pausar">II</button>
             <div class="weapon-info">
                 <div class="weapon-text" id="weaponName">PISTOL</div>
                 <div id="weaponAmmo">∞</div>
             </div>
         </div>
     </div>
- 
+
     <div id="screens">
-        <h1 class="title" id="mainTitle">NEON<br>CARNAGE</h1>
-        <p class="subtitle" id="subTitle">
-            <span class="highlight">PC:</span> WASD/Flechas para Mover | Ratón para Apuntar/Disparar | ESPACIO para Dash<br>
-            <span class="highlight">MÓVIL:</span> Joystick Izquierdo Mueve | Derecho Apunta | Doble Tap para Dash<br><br>
-            Sobrevive oleadas. Derrota al jefe cada 5. Evita los <span style="color:var(--neon-green)">Pilares de Neón</span>.
-        </p>
-        <button class="btn" id="startBtn">JACK IN</button>
+
+        <section class="panel" id="pMain">
+            <h1 class="title">NEON<br>CARNAGE</h1>
+            <p class="subtitle">Sobrevive oleadas. Derrota al jefe cada 5. Evita los <span class="highlight" style="color:var(--neon-green)">Pilares de Neón</span>.</p>
+            <p class="record">RÉCORD <span id="menuBest">000000</span></p>
+            <div class="menu-col">
+                <button class="btn" data-action="play">JUGAR</button>
+                <button class="btn btn-sm" data-action="options">AJUSTES</button>
+                <button class="btn btn-sm" data-action="controls">CONTROLES</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pOptions">
+            <h2 class="panel-title">AJUSTES</h2>
+            <div class="menu-col">
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="perf"></button>
+                <p class="hint">Quita resplandor, CRT y parte de las partículas. Recomendado en móviles lentos.</p>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="shake"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="vibrate"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="showFps"></button>
+                <label class="slider-row">VOLUMEN <span id="volVal">60%</span>
+                    <input type="range" id="volRange" min="0" max="1" step="0.05">
+                </label>
+                <button class="btn btn-sm btn-danger" data-action="clearBest">BORRAR RÉCORD</button>
+                <button class="btn btn-sm" data-action="back">VOLVER</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pControls">
+            <h2 class="panel-title">CONTROLES</h2>
+            <div class="controls-list">
+                <p><span class="highlight">PC:</span> WASD / Flechas mueven · Ratón apunta y dispara</p>
+                <p><span class="highlight">PC:</span> ESPACIO o SHIFT activa el pulso · ESC o P pausa</p>
+                <p><span class="highlight">MÓVIL:</span> Joystick izquierdo mueve · Derecho apunta y dispara</p>
+                <p><span class="highlight">MÓVIL:</span> Doble tap en la izquierda activa el pulso · Botón II pausa</p>
+                <p><span class="highlight">PULSO:</span> onda que empuja enemigos, les hace daño leve y borra balas enemigas. Recarga en 5 s.</p>
+            </div>
+            <div class="menu-col">
+                <button class="btn btn-sm" data-action="back">VOLVER</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pPause">
+            <h2 class="panel-title">PAUSA</h2>
+            <div class="menu-col">
+                <button class="btn" data-action="resume">REANUDAR</button>
+                <button class="btn btn-sm" data-action="options">AJUSTES</button>
+                <button class="btn btn-sm" data-action="controls">CONTROLES</button>
+                <button class="btn btn-sm" data-action="menu">SALIR AL MENÚ</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pOver">
+            <h1 class="title">SYSTEM<br>FAILURE</h1>
+            <div class="subtitle" id="overStats"></div>
+            <div class="menu-col">
+                <button class="btn" data-action="retry">REINTENTAR</button>
+                <button class="btn btn-sm" data-action="menu">MENÚ PRINCIPAL</button>
+            </div>
+        </section>
+
     </div>
- 
+
+    <script src="music.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
-
-
-
-
-
