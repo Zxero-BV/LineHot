@@ -17,14 +17,17 @@ const DOM = {
     weaponName: document.getElementById('weaponName'),
     weaponAmmo: document.getElementById('weaponAmmo'),
     uiLayer: document.getElementById('uiLayer'),
-    canvas: document.getElementById('gameCanvas')
+    canvas: document.getElementById('gameCanvas'),
+    pulseBtn: document.getElementById('pulseBtn')
 };
  
-let width, height;
+let width, height;                    // tamaño LÓGICO del mundo (unidades de juego)
+let viewW = 0, viewH = 0;             // tamaño de pantalla en px CSS
+let zoom = 1, dpr = 1, renderK = 1;   // zoom del mundo, densidad de píxeles, zoom*dpr
 let lastTime = 0;
 const PULSE_COOLDOWN = 5;
 const Settings = Object.assign(
-    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false },
+    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1 },
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
 function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
@@ -33,7 +36,7 @@ function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.strin
     const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
     Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', {
         get() { return desc.get.call(this); },
-        set(v) { desc.set.call(this, Settings.perf ? 0 : v); }
+        set(v) { desc.set.call(this, Settings.perf ? 0 : v * renderK); }
     });
 })();
 let bestScore = localStorage.getItem('neonCarnageBest') || 0;
@@ -57,18 +60,32 @@ function haptic(ms) {
     if (Settings.vibrate && navigator.vibrate) navigator.vibrate(ms);
 }
  
+let _viewKey = '';
+// Zoom automático: en pantallas pequeñas el mundo se "aleja" para que quepa más campo de juego y los
+// objetos no se vean enormes. El deslizador de Ajustes (Settings.scale) lo multiplica a gusto del jugador.
+function computeZoom() {
+    const base = clamp(Math.sqrt(window.innerWidth * window.innerHeight) / 900, 0.45, 1);
+    return clamp(base * clamp(+Settings.scale || 1, 0.5, 1.8), 0.3, 1.6);
+}
 function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    if (canvas.width !== width) canvas.width = width;
-    if (canvas.height !== height) canvas.height = height;
-    
-    if (bgCanvas.width !== width || bgCanvas.height !== height) {
-        bgCanvas.width = width;
-        bgCanvas.height = height;
-        if(engine && engine.state !== 'MENU') {
-            engine.redrawBackground();
-        }
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const ow = width, oh = height;
+    viewW = vw; viewH = vh;
+    zoom = computeZoom();
+    dpr = Settings.perf ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    renderK = zoom * dpr;
+    width = vw / zoom; height = vh / zoom;
+    const pw = Math.round(vw * dpr), ph = Math.round(vh * dpr);
+    if (canvas.width !== pw) canvas.width = pw;
+    if (canvas.height !== ph) canvas.height = ph;
+    if (bgCanvas.width !== pw) bgCanvas.width = pw;
+    if (bgCanvas.height !== ph) bgCanvas.height = ph;
+    const key = pw + 'x' + ph + '@' + zoom.toFixed(3);
+    if (key === _viewKey) return;
+    _viewKey = key;
+    if (typeof engine !== 'undefined' && engine) {
+        if (ow && oh) engine.rescaleWorld(ow, oh);
+        engine.redrawBackground();
     }
 }
 window.addEventListener('resize', resize);
@@ -78,6 +95,10 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', resi
 // Utilidades Matemáticas
 function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+// Al alejar el mundo (móvil) los objetos pequeños se compensan un poco para seguir viéndose bien.
+const pickupBoost = () => clamp(Math.pow(1 / zoom, 0.7), 1, 1.6);
+const textBoost = () => clamp(Math.pow(1 / zoom, 0.5), 1, 1.35);
+const isTouchUI = () => document.body.classList.contains('touch');
  
 function rectCircleCollide(cx, cy, radius, rx, ry, rw, rh) {
     let testX = cx; let testY = cy;
@@ -295,7 +316,7 @@ const audio = new AudioEngine();
 const Input = {
     left: { active: false, id: null, base: {x:0, y:0}, vector: {x:0, y:0}, force: 0 },
     right: { active: false, id: null, base: {x:0, y:0}, vector: {x:0, y:0}, force: 0 },
-    maxRadius: 60,
+    maxRadius: 56, deadZone: 8, lastTouch: 0,
     lastLeftTapTime: 0,
     lastDir: { x: 1, y: 0 }, 
     keys: { w: false, a: false, s: false, d: false },
@@ -327,11 +348,13 @@ window.addEventListener('keyup', (e) => {
  
 // Eventos de Ratón
 window.addEventListener('mousemove', (e) => {
-    Input.mouse.x = e.clientX;
-    Input.mouse.y = e.clientY;
+    if (Date.now() - Input.lastTouch < 700) return;
+    Input.mouse.x = e.clientX / zoom;
+    Input.mouse.y = e.clientY / zoom;
 });
 window.addEventListener('mousedown', (e) => {
-    if (e.target.id === 'startBtn') return; 
+    if (e.target.closest && e.target.closest('button, input, #screens')) return;
+    if (Date.now() - Input.lastTouch < 700) return; 
     Input.mouse.active = true;
 });
 window.addEventListener('mouseup', () => {
@@ -340,42 +363,39 @@ window.addEventListener('mouseup', () => {
  
 // Eventos Táctiles Originales
 function handleTouch(e) {
-    e.preventDefault();
-    const touches = e.changedTouches;
-    const now = Date.now();
- 
+    if (e.cancelable) e.preventDefault();
+    Input.lastTouch = Date.now();
+    const touches = e.changedTouches, half = window.innerWidth / 2;
+
     for (let i = 0; i < touches.length; i++) {
         const t = touches[i];
-        const isLeft = t.clientX < width / 2;
- 
+
         if (e.type === 'touchstart') {
-            if (isLeft && !Input.left.active) {
-                if (now - Input.lastLeftTapTime < 250 && engine.player && engine.state === 'PLAYING') {
-                    engine.player.pulse();
-                }
-                Input.lastLeftTapTime = now;
-                Input.left.active = true; Input.left.id = t.identifier;
-                Input.left.base = { x: t.clientX, y: t.clientY };
-            } else if (!isLeft && !Input.right.active) {
-                Input.right.active = true; Input.right.id = t.identifier;
-                Input.right.base = { x: t.clientX, y: t.clientY };
+            const stick = t.clientX < half ? Input.left : Input.right;
+            if (!stick.active) {
+                stick.active = true; stick.id = t.identifier;
+                stick.base = { x: t.clientX, y: t.clientY };
+                stick.force = 0; stick.vector = { x: 0, y: 0 };
             }
-        }
- 
-        if (e.type === 'touchmove') {
+        } else if (e.type === 'touchmove') {
             const stick = Input.left.id === t.identifier ? Input.left : (Input.right.id === t.identifier ? Input.right : null);
-            if (stick) {
-                const dx = t.clientX - stick.base.x;
-                const dy = t.clientY - stick.base.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                stick.force = Math.min(dist / Input.maxRadius, 1);
-                if (dist > 0) stick.vector = { x: dx / dist, y: dy / dist };
+            if (stick && stick.active) {
+                let dx = t.clientX - stick.base.x, dy = t.clientY - stick.base.y;
+                let d = Math.hypot(dx, dy);
+                const R = Input.maxRadius;
+                if (d > R) {                       // la base sigue al dedo: nunca hay que "volver" al centro
+                    const k = (d - R) / d;
+                    stick.base.x += dx * k; stick.base.y += dy * k;
+                    dx = t.clientX - stick.base.x; dy = t.clientY - stick.base.y; d = R;
+                }
+                const dz = Input.deadZone;
+                stick.force = d <= dz ? 0 : Math.min((d - dz) / (R - dz), 1);
+                if (d > 0) stick.vector = { x: dx / d, y: dy / d };
             }
-        }
- 
-        if (e.type === 'touchend' || e.type === 'touchcancel') {
-            if (Input.left.id === t.identifier) { Input.left.active = false; Input.left.force = 0; Input.left.vector = {x:0,y:0}; }
-            if (Input.right.id === t.identifier) { Input.right.active = false; Input.right.force = 0; Input.right.vector = {x:0,y:0}; }
+        } else {                                   // touchend / touchcancel
+            for (const stick of [Input.left, Input.right]) {
+                if (stick.id === t.identifier) { stick.active = false; stick.id = null; stick.force = 0; stick.vector = { x: 0, y: 0 }; }
+            }
         }
     }
 }
@@ -498,12 +518,15 @@ class Player extends Entity {
             this.angle = Math.atan2(Input.mouse.y - this.y, Input.mouse.x - this.x);
             if (this.fireCooldown <= 0) this.shoot();
         } else if (Input.right.active && Input.right.force > 0.3) {
-            this.angle = Math.atan2(Input.right.vector.y, Input.right.vector.x);
+            let aim = Math.atan2(Input.right.vector.y, Input.right.vector.x);
+            if (Settings.aimAssist) aim = engine.assistAim(this.x, this.y, aim);
+            this.angle = aim;
             if (this.fireCooldown <= 0) this.shoot();
         }
         
         DOM.healthFill.style.width = `${Math.max(0, (this.hp / this.maxHp) * 100)}%`;
         DOM.dashFill.style.width = `${this.pulseCooldown <= 0 ? 100 : 100 - (this.pulseCooldown / PULSE_COOLDOWN) * 100}%`;
+        updatePulseButton(this.pulseCooldown);
         DOM.weaponName.innerText = this.weapon.name;
         DOM.weaponName.style.color = this.weapon.color;
         DOM.weaponAmmo.innerText = this.ammo === Infinity ? "∞" : this.ammo;
@@ -740,15 +763,25 @@ class Pickup extends Entity {
     constructor(x, y, type) {
         super(x, y, 12, type === 'HEALTH' ? C.green : WEAPONS[type].color);
         this.itemType = type; this.life = 12; this.floatY = 0;
+        this.boost = pickupBoost(); this.hit = this.radius * this.boost;
     }
     update(dt) {
         this.life -= dt;
         this.floatY = Math.sin(engine.time * 5) * 5;
+        const pl = engine.player;
+        if (pl && engine.state === 'PLAYING') {          // imán suave: recoger objetos no exige precisión de dedo
+            const d = dist(this.x, this.y, pl.x, pl.y);
+            if (d < 130 && d > 1) {
+                const s = (1 - d / 130) * 420 * dt;
+                this.x += (pl.x - this.x) / d * s; this.y += (pl.y - this.y) / d * s;
+            }
+        }
     }
     draw(ctx) {
         if (this.life < 3 && Math.floor(this.life * 10) % 2 === 0) return; 
         ctx.save();
         ctx.translate(this.x, this.y + this.floatY);
+        ctx.scale(this.boost, this.boost);
         ctx.globalCompositeOperation = 'lighter';
         ctx.shadowBlur = 15; ctx.shadowColor = this.color;
         ctx.fillStyle = this.color;
@@ -799,7 +832,7 @@ class Particle {
         ctx.save();
         if (this.type === 'text') {
             ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color;
-            ctx.font = `900 ${this.fs || 22}px Orbitron`; ctx.textAlign = 'center';
+            ctx.font = `900 ${this.fs || Math.round(22 * textBoost())}px Orbitron`; ctx.textAlign = 'center';
             ctx.shadowBlur = 10; ctx.shadowColor = this.color;
             ctx.fillText(this.text, this.x, this.y);
         } else if (this.type === 'ghost') {
@@ -843,8 +876,8 @@ class GameEngine {
             let x, y, distToCenter;
             let attempts = 0;
             do {
-                x = Math.random() * (width - w - 100) + 50;
-                y = Math.random() * (height - h - 100) + 50;
+                x = Math.random() * Math.max(1, width - w - 100) + 50;
+                y = Math.random() * Math.max(1, height - h - 100) + 50;
                 distToCenter = dist(x+w/2, y+h/2, width/2, height/2);
                 attempts++;
             } while(distToCenter < 200 && attempts < 50); 
@@ -855,7 +888,9 @@ class GameEngine {
  
     redrawBackground() {
         bgCtx.fillStyle = C.bg;
+        bgCtx.setTransform(1, 0, 0, 1, 0, 0);
         bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+        bgCtx.setTransform(renderK, 0, 0, renderK, 0, 0);
         bgCtx.strokeStyle = 'rgba(0, 243, 255, 0.05)'; bgCtx.lineWidth = 1;
         bgCtx.beginPath();
         const gs = 80;
@@ -989,7 +1024,7 @@ class GameEngine {
         this.checkCollisions();
  
         const targetTilt = clamp(this.player.vx * 0.015, -4, 4);
-        DOM.canvas.style.transform = Settings.perf ? 'none' : `rotate(${targetTilt}deg) scale(1.05)`; 
+        DOM.canvas.style.transform = (Settings.perf || isTouchUI()) ? 'none' : `rotate(${targetTilt}deg) scale(1.05)`; 
     }
     
     updateArrays(dt, particlesOnly) {
@@ -1022,7 +1057,7 @@ class GameEngine {
     checkCollisions() {
         for (let i = this.pickups.length - 1; i >= 0; i--) {
             const p = this.pickups[i];
-            if (dist(this.player.x, this.player.y, p.x, p.y) < this.player.radius + p.radius) {
+            if (dist(this.player.x, this.player.y, p.x, p.y) < this.player.radius + p.hit) {
                 if (p.itemType === 'HEALTH') {
                     this.player.hp = Math.min(this.player.maxHp, this.player.hp + 40);
                     this.spawnText(p.x, p.y, "+HP", C.green);
@@ -1083,6 +1118,7 @@ class GameEngine {
             if (stick.active) {
                 const color = idx === 0 ? C.cyan : C.pink;
                 ctx.save();
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);          // joysticks en px de pantalla, no del mundo
                 ctx.globalAlpha = 0.2; ctx.fillStyle = color;
                 ctx.beginPath(); ctx.arc(stick.base.x, stick.base.y, Input.maxRadius, 0, Math.PI*2); ctx.fill();
                 ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.stroke();
@@ -1090,7 +1126,7 @@ class GameEngine {
                 const headX = stick.base.x + stick.vector.x * (Input.maxRadius * stick.force);
                 const headY = stick.base.y + stick.vector.y * (Input.maxRadius * stick.force);
                 
-                ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(headX, headY, 15, 0, Math.PI*2);
+                ctx.globalAlpha = 0.8; ctx.beginPath(); ctx.arc(headX, headY, 18, 0, Math.PI*2);
                 ctx.fillStyle = C.white; ctx.fill();
                 ctx.restore();
             }
@@ -1098,7 +1134,9 @@ class GameEngine {
     }
  
     draw() {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(bgCanvas, 0, 0);
+        ctx.setTransform(renderK, 0, 0, renderK, 0, 0);
  
         ctx.save();
         if (this.shakeAmount > 0) {
@@ -1127,8 +1165,9 @@ class GameEngine {
         
         if (this.hitStop > 0 && this.shakeAmount > 15) {
             ctx.globalCompositeOperation = 'screen';
-            ctx.drawImage(canvas, -2, 0);
-            ctx.drawImage(canvas, 2, 0);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(canvas, -2 * dpr, 0);
+            ctx.drawImage(canvas, 2 * dpr, 0);
             ctx.globalCompositeOperation = 'source-over';
         }
     }
@@ -1431,7 +1470,7 @@ const Menu = {
     back() { if (this.stack.length) this.show(this.stack.pop()); },
     close() { DOM.screens.classList.add('hidden'); },
     syncOptions() {
-        const labels = { perf: 'MODO RENDIMIENTO', shake: 'SACUDIDA DE PANTALLA', vibrate: 'VIBRACIÓN', showFps: 'MOSTRAR FPS' };
+        const labels = { perf: 'MODO RENDIMIENTO', shake: 'SACUDIDA DE PANTALLA', vibrate: 'VIBRACIÓN', showFps: 'MOSTRAR FPS', aimAssist: 'AYUDA DE PUNTERÍA' };
         document.querySelectorAll('[data-action="toggle"]').forEach(b => {
             const k = b.dataset.key;
             b.innerText = `${labels[k]}: ${Settings[k] ? 'ON' : 'OFF'}`;
@@ -1441,6 +1480,9 @@ const Menu = {
         document.getElementById('volVal').innerText = Math.round(Settings.volume * 100) + '%';
         document.getElementById('musicRange').value = Settings.music;
         document.getElementById('musicVal').innerText = Math.round(Settings.music * 100) + '%';
+        document.getElementById('pulseSideBtn').innerText = 'BOTÓN DE PULSO: ' + (Settings.pulseSide === 'left' ? 'IZQUIERDA' : 'DERECHA');
+        document.getElementById('scaleRange').value = Settings.scale;
+        document.getElementById('scaleVal').innerText = Math.round(Settings.scale * 100) + '%';
     }
 };
 
@@ -1450,6 +1492,8 @@ function applySettings() {
     audio.master.gain.value = Settings.volume;
     audio.music.setLevel(Settings.music);
     audio.music.setQuality(Settings.perf);
+    document.body.classList.toggle('pulse-left', Settings.pulseSide === 'left');
+    resize();
     document.getElementById('fpsEl').classList.toggle('hidden', !Settings.showFps);
     Menu.syncOptions();
 }
@@ -1477,6 +1521,7 @@ function setupMenu() {
             case 'options': Menu.open('pOptions'); break;
             case 'controls': Menu.open('pControls'); break;
             case 'back': Menu.back(); break;
+            case 'pulseSide': Settings.pulseSide = Settings.pulseSide === 'left' ? 'right' : 'left'; applySettings(); break;
             case 'toggle': Settings[b.dataset.key] = !Settings[b.dataset.key]; applySettings(); break;
             case 'clearBest':
                 bestScore = 0; localStorage.removeItem('neonCarnageBest');
@@ -1594,10 +1639,84 @@ Enemy.prototype.drawBig = function (ctx) {
     _drawBigBase.call(this, ctx);
 };
 
+// ===================== MÓVIL (v3) =====================
+Object.assign(GameEngine.prototype, {
+    // Al girar el teléfono o cambiar el zoom, el mundo cambia de tamaño lógico: se recolocan las entidades.
+    rescaleWorld(ow, oh) {
+        const fx = width / ow, fy = height / oh;
+        const mv = (o) => { o.x *= fx; o.y *= fy; };
+        mv(this.player); this.enemies.forEach(mv); this.pickups.forEach(mv);
+        this.obstacles.forEach(o => {
+            mv(o);
+            o.x = clamp(o.x, 0, Math.max(0, width - o.w));
+            o.y = clamp(o.y, 0, Math.max(0, height - o.h));
+        });
+        this.bullets.length = 0; this.particles.length = 0; this.stains.length = 0;
+        this.rings.length = 0; this.slashes.length = 0; this.beams.length = 0;
+        this.player.trail.length = 0;
+    },
+    // Ayuda de puntería (solo táctil): si hay un enemigo dentro de un cono estrecho, la mira se inclina hacia él.
+    assistAim(x, y, a) {
+        let best = null, bd = Infinity;
+        for (const e of this.enemies) {
+            if (e.dead) continue;
+            const dx = e.x - x, dy = e.y - y, d = Math.hypot(dx, dy);
+            if (d > 800 || d < 1) continue;
+            let diff = Math.atan2(dy, dx) - a;
+            diff = Math.atan2(Math.sin(diff), Math.cos(diff));
+            if (Math.abs(diff) < 0.16 + Math.atan2(e.radius, d) && d < bd) { bd = d; best = diff; }
+        }
+        return best === null ? a : a + best * 0.7;
+    }
+});
+
+// Botón de pulso: anillo de recarga y brillo cuando está listo
+let _pLast = -1, _pReady = null;
+function updatePulseButton(cd) {
+    const btn = DOM.pulseBtn;
+    if (!btn) return;
+    const ready = cd <= 0;
+    const p = ready ? 100 : Math.round(100 - (cd / PULSE_COOLDOWN) * 100);
+    if (p !== _pLast) { _pLast = p; btn.style.setProperty('--p', p); }
+    if (ready !== _pReady) { _pReady = ready; btn.classList.toggle('ready', ready); }
+}
+
+function setupTouchUI() {
+    const body = document.body;
+    if (window.matchMedia && matchMedia('(pointer: coarse)').matches) body.classList.add('touch');
+    // Portátiles/tablets con pantalla táctil: el modo móvil se activa con el primer toque
+    window.addEventListener('touchstart', () => {
+        Input.lastTouch = Date.now();
+        if (!body.classList.contains('touch')) body.classList.add('touch');
+    }, { passive: true, capture: true });
+
+    const btn = DOM.pulseBtn;
+    btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        Input.lastTouch = Date.now();
+        if (!engine || engine.state !== 'PLAYING' || !engine.player) return;
+        if (engine.player.pulseCooldown > 0) {            // aún recargando: pequeño aviso
+            btn.classList.remove('deny'); void btn.offsetWidth; btn.classList.add('deny');
+            haptic(15);
+            return;
+        }
+        engine.player.pulse();
+    });
+    btn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    document.getElementById('scaleRange').addEventListener('input', (e) => {
+        Settings.scale = parseFloat(e.target.value); applySettings();
+    });
+    // Sin zoom de pellizco ni menú contextual al mantener pulsado
+    document.addEventListener('gesturestart', (e) => e.preventDefault());
+    document.addEventListener('contextmenu', (e) => { if (body.classList.contains('touch')) e.preventDefault(); });
+}
+
 window.onload = function() {
-    engine = new GameEngine();
     resize();
+    engine = new GameEngine();
     setupMenu();
+    setupTouchUI();
     applySettings();
     Menu.show('pMain');
     requestAnimationFrame((t) => { lastTime = t; loop(t); });
