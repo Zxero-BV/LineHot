@@ -8,6 +8,7 @@
     --neon-green: #00ff66;
     --neon-red: #ff3333;
     --bg-dark: #05010a;
+    --neon-white: #ffffff;
 }
 
 * {
@@ -236,3 +237,94 @@ body.perf .crt-flicker { animation: none; }
 body.perf #screens { backdrop-filter: none; background: rgba(5, 1, 10, .97); }
 body.perf #gameCanvas { transition: none; }
 body.perf .btn, body.perf .combo-container { transition: none; box-shadow: none; }
+
+/* =====================================================================
+   MÓVIL Y PANTALLA COMPLETA
+   - El juego ocupa toda el área visible (dvh sigue a la barra del navegador).
+   - HUD y menús respetan muescas y bordes redondeados (safe-area).
+   - Menús que nunca se cortan: si no caben, se desplazan.
+   - Modo horizontal bajo (móviles girados): todo se compacta.
+   ===================================================================== */
+:root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --pad: clamp(10px, 2.2vmin, 20px);
+}
+
+html, body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+#gameWrapper { position: fixed; inset: 0; width: 100%; height: 100%; }
+
+#uiLayer {
+    padding: var(--pad);
+    padding-top: max(var(--pad), var(--sat));
+    padding-right: max(var(--pad), var(--sar));
+    padding-bottom: max(var(--pad), var(--sab));
+    padding-left: max(var(--pad), var(--sal));
+}
+.score-container { font-size: clamp(.95rem, 3.4vmin, 1.2rem); }
+.combo-container { font-size: clamp(1.1rem, 4vmin, 1.5rem); }
+#waveEl { font-size: clamp(.85rem, 3vmin, 1.1rem); letter-spacing: clamp(2px, .8vmin, 4px); }
+#bossBar { top: calc(max(var(--pad), var(--sat)) + 46px); }
+#fpsEl { top: calc(max(var(--pad), var(--sat)) + 52px); right: max(var(--pad), var(--sar)); }
+.pause-btn { width: 48px; height: 48px; flex: none; }
+
+/* Menús: pantalla completa real, centrado que nunca recorta el contenido */
+#screens {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: max(10px, var(--sat)) max(10px, var(--sar)) max(10px, var(--sab)) max(10px, var(--sal));
+}
+.panel { margin: auto; max-height: none; overflow: visible; padding: clamp(10px, 3vmin, 20px); }
+
+.title { font-size: clamp(2rem, min(9vw, 13vh), 5rem); }
+.subtitle { margin-bottom: clamp(12px, 4vh, 40px); max-width: min(90%, 640px); }
+.panel-title { font-size: clamp(1.4rem, 5vh, 2rem); }
+.btn { padding: clamp(10px, 2vh, 15px) clamp(22px, 6vw, 50px); font-size: clamp(1.1rem, 3.4vh, 1.5rem); }
+.btn-sm { padding: clamp(8px, 1.6vh, 10px) 20px; font-size: clamp(.9rem, 2.6vh, 1rem); }
+.record { margin-bottom: clamp(10px, 3vh, 30px); }
+
+@media (pointer: coarse) {
+    .slider-row input { height: 36px; }
+    .btn, .btn-sm { min-height: 44px; }
+}
+
+/* Móvil en horizontal (poca altura): todo más compacto */
+@media (max-height: 520px) {
+    .panel { gap: 8px; padding: 8px; }
+    .menu-col { gap: 8px; }
+    .title { margin-bottom: 2px; }
+    .subtitle { font-size: .75rem; line-height: 1.4; margin-bottom: 8px; }
+    .controls-list { gap: 6px; }
+    .hint, .controls-list p { font-size: .72rem; line-height: 1.4; }
+    .slider-row { font-size: .8rem; gap: 4px; }
+    .hud-label { font-size: .6rem; }
+    .bar-bg { height: 10px; }
+    .weapon-text { font-size: 1rem; }
+    #weaponAmmo { font-size: 1.2rem; }
+}
+@media (max-height: 380px) {
+    .title { font-size: clamp(1.6rem, 11vh, 2.6rem); }
+    .btn { padding: 8px 20px; font-size: 1rem; }
+    .btn-sm { padding: 6px 14px; font-size: .85rem; }
+}
