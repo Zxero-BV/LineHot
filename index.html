@@ -26,7 +26,10 @@
                 <div id="highScoreEl">HI: 000000</div>
             </div>
             <div id="waveEl">WAVE 1</div>
-            <div class="combo-container" id="comboEl">x1<br>COMBO</div>
+            <div class="hud-right">
+                <div class="combo-container" id="comboEl">x1<br>COMBO</div>
+                <button id="pauseBtn" class="pause-btn" aria-label="Pausar">II</button>
+            </div>
         </div>
         <div id="bossBar" class="hidden">// BOSS //<div class="bar-bg"><div class="bar-fill" id="bossFill"></div></div></div>
         <div id="fpsEl" class="hidden">0 FPS</div>
@@ -34,15 +37,17 @@
             <div class="bars-container">
                 <div class="hud-label">HP</div>
                 <div class="bar-bg"><div class="bar-fill" id="healthGhost"></div><div class="bar-fill" id="healthFill"></div></div>
-                <div class="hud-label" style="margin-top:5px;">PULSO (Espacio / Doble Tap)</div>
-                <div class="bar-bg"><div class="bar-fill" id="dashFill"></div></div>
+                <div class="dash-block">
+                    <div class="hud-label" style="margin-top:5px;">PULSO (Espacio)</div>
+                    <div class="bar-bg"><div class="bar-fill" id="dashFill"></div></div>
+                </div>
             </div>
-            <button id="pauseBtn" class="pause-btn" aria-label="Pausar">II</button>
             <div class="weapon-info">
                 <div class="weapon-text" id="weaponName">PISTOL</div>
                 <div id="weaponAmmo">∞</div>
             </div>
         </div>
+        <button id="pulseBtn" class="pulse-btn ready" aria-label="Pulso"><span>PULSO</span></button>
     </div>
 
     <div id="screens">
@@ -51,6 +56,7 @@
             <h1 class="title">NEON<br>CARNAGE</h1>
             <p class="subtitle">Sobrevive oleadas. Derrota al jefe cada 5. Evita los <span class="highlight" style="color:var(--neon-green)">Pilares de Neón</span>.</p>
             <p class="record">RÉCORD <span id="menuBest">000000</span></p>
+            <p class="rotate-hint">↻ Gira el teléfono: en horizontal se juega más cómodo</p>
             <div class="menu-col">
                 <button class="btn" data-action="play">JUGAR</button>
                 <button class="btn btn-sm" data-action="options">AJUSTES</button>
@@ -63,6 +69,11 @@
             <div class="menu-col">
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="perf"></button>
                 <p class="hint">Quita resplandor, CRT y parte de las partículas. Recomendado en móviles lentos.</p>
+                <label class="slider-row">TAMAÑO DEL JUEGO <span id="scaleVal">100%</span>
+                    <input type="range" id="scaleRange" min="0.6" max="1.5" step="0.05">
+                </label>
+                <button class="btn btn-sm touch-only" id="pulseSideBtn" data-action="pulseSide"></button>
+                <button class="btn btn-sm toggle touch-only" data-action="toggle" data-key="aimAssist"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="shake"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="vibrate"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="showFps"></button>
@@ -82,8 +93,9 @@
             <div class="controls-list">
                 <p><span class="highlight">PC:</span> WASD / Flechas mueven · Ratón apunta y dispara</p>
                 <p><span class="highlight">PC:</span> ESPACIO o SHIFT activa el pulso · ESC o P pausa</p>
-                <p><span class="highlight">MÓVIL:</span> Joystick izquierdo mueve · Derecho apunta y dispara</p>
-                <p><span class="highlight">MÓVIL:</span> Doble tap en la izquierda activa el pulso · Botón II pausa</p>
+                <p><span class="highlight">MÓVIL:</span> Joystick izquierdo mueve · Derecho apunta y dispara. Los joysticks siguen a tu dedo.</p>
+                <p><span class="highlight">MÓVIL:</span> Botón circular PULSO (se ilumina cuando está listo) · Botón II arriba a la derecha pausa</p>
+                <p><span class="highlight">MÓVIL:</span> En Ajustes puedes cambiar el botón de pulso de lado, el tamaño del juego y la ayuda de puntería.</p>
                 <p><span class="highlight">PULSO:</span> onda que empuja enemigos, les hace daño leve y borra balas enemigas. Recarga en 5 s.</p>
             </div>
             <div class="menu-col">
