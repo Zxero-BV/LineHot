@@ -21,7 +21,7 @@ const DOM = {
     pulseBtn: document.getElementById('pulseBtn')
 };
  
-let width, height;                    // tamaño LÓGICO del mundo (unidades de juego)
+let width, height;                    // tamaño LÓGICO del mundo (unidades de el juego)
 let viewW = 0, viewH = 0;             // tamaño de pantalla en px CSS
 let zoom = 1, dpr = 1, renderK = 1;   // zoom del mundo, densidad de píxeles, zoom*dpr
 let lastTime = 0;
