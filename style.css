@@ -1,596 +1,451 @@
-// =====================================================================
-//  MÚSICA — Linehot  (v2: director adaptativo)
-//
-//  Seis temas (bytebeat / funcbeat) que se mezclan según cómo juegas:
-//    happy  → menú y hasta que mates al primer enemigo. Alegre.
-//    shock  → tras el primer enemigo. Tensión.
-//    addict → entra poco a poco en las primeras oleadas. Techno hipnótico.
-//    epic   → a partir de la oleada ~4. Tu bytebeat nuevo, grande y cinematográfico.
-//    boss   → solo durante las oleadas de jefe. Rápido y agresivo.
-//    abyss  → oleadas 9+. El más oscuro.
-//
-//  Cómo se consigue que el cambio sea gradual y suave:
-//   1. Los cambios no ocurren "cuando sea": se programan para el siguiente
-//      compás (o pulso, si es urgente) del tema que suena, y el tema nuevo
-//      arranca desde su primer tiempo. Siempre entra "en el uno".
-//   2. Fundido de potencia constante (varios segundos, cada tema tiene el suyo).
-//   3. Estilo DJ: el tema que entra empieza apagado (filtro cerrado, sin graves)
-//      y se abre; el que sale pierde primero los graves, así no chocan.
-//   4. Los cambios de escena grandes (epic, boss, abyss) llevan un riser de
-//      ruido y un golpe grave justo en el tiempo fuerte.
-//   5. Todo lo demás reacciona sin saltos: el sonido se oscurece con el
-//      progreso, se abre con el combo, se apaga entre oleadas y late cuando
-//      queda poca vida. Al morir la música se apaga con un fundido.
-//
-//  Para cambiar un tema, edita su cuerpo en SRC_*. Para cambiar cuándo suena
-//  cada uno, mira computeDesired() más abajo (los números son oleadas).
-//  happy y epic son bytebeat (t = muestra entera); el resto, funcbeat (t = segundos).
-// =====================================================================
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
 
-// Cuerpos de fábrica: cada uno devuelve la función que genera el audio.
-// Se envuelven en with(Math) para poder escribir sin "Math." (igual que Bytebeat Composer).
-// (No uses nombres de variable que ya existan en Math, como E, max, min, exp…)
-
-const SRC_HAPPY = `
-var C, m, y, z, M, w, s, k, R;
-return function (t) {
-    return ((t /= 6) || (C = [[1.5873,4,4,4.7568,3.1748],[1.4983,5.3392,4.4896,3.5632,2.9964],[1.4983,5.3392,4.4896,3.7752,2.9964],[1,3.5632,4.7568,4,2.9964],[1.5873,4,4,4.7568,3.1478],[1.4983,5.3392,4.4896,3.5632,2.9964],[1,5.3392,4.4896,3.5632,2.9964],[1,5.0396,4,2.9964,2.9964]], m = 'ÿ@@ŀ@@Ĥ@@ÿ@@ê@Øê@ÿê@ØÀÀ@@@Ø@@êÿ@@ċ@ÿÿ@@@@Ĥ@@ċ@@ÿÿ@ċÿÿÿê@Ø@@êê@êÿÿÿê@@ØØ@ê@Ĥ@@ÿ@@ê@@ÿÿ@@@@@@@@õõõ')),
-        y = 2 * t,
-        z = c => (M = (m.charCodeAt(w = t / 800 % 96) - 64) * t / (2048 + c * 2),
-            (C[s = int(t / 9600 % 8)].map(e => (32 > w && 1 << w & 0xC007307 || (32 <= w && 64 > w) && 1 << w & 1929842288 || 64 < w && 1 << w & 0xE70C400) && sin((y * e / (128 + c / 4) % 2 - 1) ** 9 * PI) / 2).reduce((a, b) => a + b) + sin((M % 2 - 1) ** 9 * PI + sin(M * PI * 2) / 2)) * (k = t / 4800 % 1) ** .5 + sin(k ** .2 * 200 + c / 4) * (1 - k) ** 6 + (R = () => random() - .5)() * sin(t * 6) * max(1 - t / 800 % 3 % 2, 0) ** 5 + (t / 4800 & 1 && sin(k ** .4 * 300 + R() * k ** 2 * 400 - c / 3) * (1 - k) ** 7) + R() * (t / 2400 & 1 && 1 - k) ** 2 * 1.2),
-        [z(-1), z(1)];
-};`;
-
-const SRC_SHOCK = `
-var l = 0, r = 0, p, P;
-return function (t) {
-    return (p = 2 ** (("$$$000,,,,,,,,''".charCodeAt(4.3 * t & 15) + 22) / 12),
-        P = ((t * p % 1 > t / 2 % 1 * .6 + .2) - .5) / 2,
-        l += r += (P - l - 3 * r) / (170 * cos(t / 5) + 200),
-        l + sin(180 * (4.3 * t % 2 + .01) ** .3) / 4);
-};`;
-
-const SRC_ADDICT = `
-var slow = 0, BPM = slow ? 125 : 165;
-var A = 0, B = 0, C = 0, D = 0, b, e, KICK, HAT, CLAP, BAS, MEL, g, r;
-var note = (a = 0, b = 0) => { return (x, d) => { return (a += b += (440 * 2 ** (x / 12) - b) / 20) / d; }; };
-var _a = note(), _b = note();
-return (t, s) => {
-    b = t * BPM / 60;
-    e = 60 / BPM;
-    KICK = sin(cbrt(t % e) * 192);
-    HAT = (random() - .5 + (t * 2.0833 * 2 ** 15 & 1 ? .25 : -.25) / 1.5) / exp(t % (e / 2)) ** 64 * (b * 2 & 1);
-    CLAP = (A += B += (random() - .5 - A - B * 3) / 9) * (1 / exp(t % e) ** 36 * 3 % 1) * 8 * (b & 1);
-    g = _a([6, 6, 6, 6, 2, 2, 2, 1][b >> 1 & 7], s) * PI / 8;
-    r = _b([-6, 1, 6, -6, 1, 6, -6, 1, 6, -6, 1, 9, 8, 9, 4, -1, -10, -3, 2, -10, -3, 2, -10, -3, 2, -10, -3, 2, -11, -4, 1, 4][b * 2 & 31], s) * PI;
-    BAS = (sin(g) ** 256 - sin(g + .1) ** 256) * 4 * (C += (cbrt(b % 1) ** 4 - C) / 8);
-    MEL = sin(r + cos(r + 2 * 2 + sin(r))) * (D += ((1 / exp(b % .5) ** 4) - D) / 8);
-    return (KICK + HAT + CLAP + BAS + MEL) / 4;
-};`;
-
-
-// ---------------------------------------------------------------------
-//  TEMA 4 · EPIC  (tu bytebeat nuevo, a 44.1 kHz como floatbeat)
-//  Es exactamente tu fórmula; solo he sacado a variables locales lo que
-//  se recreaba en cada muestra (el array de 32 valores y el Array.from)
-//  para que no gaste CPU ni genere basura en el móvil. El resultado es
-//  idéntico. Q.n son las capas del acorde (16 normal, 8 en modo rendimiento).
-// ---------------------------------------------------------------------
-const SRC_EPIC = `
-var X, Y, C, H, S;
-var MK = [0, 3, 3, 3, 2, 3, 3, 5, 5, 2, 4, 3, 6, 4, 0, 0, 1, 3, 3, 3, 3, 2, 3, 3, 4, 4, 2, 3, 3, -3, -5, -12];
-var mult = (t) => { var i = t >> 13 & 31; return i === 0 ? (t >> 11) % 4 | 5 : i === 14 ? t / 64 & 4 : i === 15 ? (t / 5 & 1) + 6 : MK[i]; };
-X = (t, e) => { var s = sin(t * PI / 256); return sin(atan(sin(t * PI / 256 + s * e) / 4) * e * mult(t)) / (1 + e / 16); };
-Y = (t, E, n) => {
-    var d = 2 - E / 1.5, a = X(t, 0) / d;
-    for (var b = 1; b < n; b++) a = -cbrt(1 - a) * -(1 - (X(t + b * E * 65, b) / d) ** 3);
-    return (a - 1) * (1 + E) * 2;
-};
-return function (t) {
-    t /= 5 / 3;
-    C = (6417 >> (t >> 12 & 15) & 1) ? t / 4096 % 1 : 1;
-    H = sin(-sin(t + random()) * 4 - t * 5 + random() * 2) * sin(t * 7 + random() * 4) ** 3;
-    S = (-t >> 13 & 1 & t >> 14 & 1) ? (t / 8192 - 1 / 8192) % 1 : 1;
-    return Y(t, atan(12 * (sin(t * PI / (8192 / +'42124228146212261212466222426241'[t >> 13 & 31]) - 1.2) + 1)), Q.n) / 2 * C ** 3 * S ** .5 * (t / 16384 % 1) ** .6 + cbrt(sin(cbrt(C / 8) * 125) * (1 - C ** .7) * 8) * (1 - C ** .2) ** 1.2 * 4 + H * +'22112112121112111'[t >> 12 & 15] * (1 - (t / 8192 % 1) ** .1) ** 3 * 18 / 1.5 + cbrt(sin(cbrt(S * 12 + .5) * 130) * (1 - S ** .5) * .9 + sin((t >> 1) % 13131 * (t >> 2) % 11111) * S ** .9 * (1 - S ** .5) * 3) * (1 - S ** 3) ** 3 * (1 - S ** .2) ** 2 * 12;
-};`;
-
-// ---------------------------------------------------------------------
-//  TEMA 5 · BOSS  (funcbeat, 150 BPM, la menor frigio)
-//  Bombo con barrido, bajo gruñón en semicorcheas, caja en 2 y 4,
-//  hi-hats, acordes cortos y un riser de ruido en el último compás de cada 4.
-// ---------------------------------------------------------------------
-const SRC_BOSS = `
-var TAU = 2 * PI, B = 60 / 150, S16 = B / 4, BAR = B * 4;
-var hz = n => 55 * pow(2, n / 12);
-var RIFF = [0, 0, 12, 0,  0, 1, 0, 12,  0, 0, 12, 0,  3, 1, 0, -2];
-var ROOT = [0, 0, 1, -2];
-var kick = (u, f0, f1, dec, len) => u < 0 ? 0 : sin(TAU * (f1 * u + (f0 - f1) * (1 - exp(-u * dec)) / dec)) * exp(-u * len);
-var sw = (a, t) => 2 * ((a * t) % 1) - 1;
-return function (t) {
-    var bar = floor(t / BAR), x = t - bar * BAR, step = floor(x / S16) & 15, tb = x % B, ts = x % S16, bi = floor(x / B);
-    var duck = 1 - 0.85 * exp(-tb * 9);
-    var k = kick(tb, 170, 42, 32, 10) * 0.9;
-    var gk = (bar & 1) && step >= 14 ? kick(x - 14 * S16, 170, 44, 32, 11) * 0.6 : 0;
-    var f = hz(RIFF[step] + ROOT[bar & 3]);
-    var gate = min(1, ts * 500) * min(1, (S16 - ts) * 400) * (0.35 + 0.65 * exp(-ts * 8));
-    var bass = (tanh(3.5 * sw(f, t)) * 0.45 + sin(TAU * f * t) * 0.75) * gate * duck;
-    var sn = (bi & 1) ? (random() - 0.5) * exp(-tb * 17) * 0.9 + sin(TAU * 190 * tb) * exp(-tb * 30) * 0.5 : 0;
-    var hat = (random() - 0.5) * exp(-ts * 75) * ((step & 1) ? 0.18 : 0.3) + ((step & 3) === 2 ? (random() - 0.5) * exp(-ts * 16) * 0.22 : 0);
-    var ss = step >= 13 ? 13 : step >= 10 ? 10 : step >= 6 ? 6 : step >= 3 ? 3 : -1;
-    var stab = 0;
-    if (ss >= 0) {
-        var tx = x - ss * S16, f0 = 220 * pow(2, ROOT[bar & 3] / 12);
-        stab = tanh(1.6 * (sw(f0, t) + sw(f0 * 1.0075, t) + sw(f0 * 1.4983, t) * 0.8 + sw(f0 * 2.01, t) * 0.6)) * exp(-tx * 13) * min(1, tx * 400) * 0.22;
-    }
-    var ru = (bar & 3) === 3 ? pow(x / BAR, 3) : 0;
-    var riser = (random() - 0.5) * ru * 0.35;
-    return tanh((k + gk + bass * 0.7 + sn * 0.6 + hat + stab + riser) * 1.1) * 0.9;
-};`;
-
-// ---------------------------------------------------------------------
-//  TEMA 6 · ABYSS  (funcbeat, 128 BPM, mi frigio) — el más oscuro.
-//  Bombo pesado, bajo que rueda entre los golpes con sidechain, metales
-//  inarmónicos, palmas con cola larga y un drone disonante de fondo.
-// ---------------------------------------------------------------------
-const SRC_ABYSS = `
-var TAU = 2 * PI, B = 60 / 128, S16 = B / 4, BAR = B * 4;
-var hz = n => 41.2034 * pow(2, n / 12);
-var ROOT = [0, 0, 1, 0, 0, 0, 3, 1];
-var kick = (u, f0, f1, dec, len) => u < 0 ? 0 : sin(TAU * (f1 * u + (f0 - f1) * (1 - exp(-u * dec)) / dec)) * exp(-u * len);
-return function (t) {
-    var bar = floor(t / BAR), x = t - bar * BAR, step = floor(x / S16) & 15, tb = x % B, ts = x % S16, bi = floor(x / B);
-    var duck = 1 - 0.92 * exp(-tb * 8);
-    var k = tanh(kick(tb, 135, 36, 24, 7.5) * 2.2) * 0.9;
-    var f = hz(ROOT[bar & 7]);
-    var gate = (step & 3) ? pow(max(0, sin(PI * ts / S16)), 0.7) : 0;
-    var s1 = sin(TAU * f * t);
-    var rumble = (s1 + tanh(2.5 * s1) * 0.5 + sin(TAU * 2 * f * t) * 0.25) * gate * duck * 0.55;
-    var tc = (step === 6 || step === 14 || ((bar & 1) && step === 11)) ? ts : -1;
-    var clank = 0;
-    if (tc >= 0) clank = (sin(TAU * 387 * tc) + 0.8 * sin(TAU * 601 * tc) + 0.6 * sin(TAU * 953 * tc) + 0.4 * sin(TAU * 1493 * tc)) * exp(-tc * 24) * 0.11 + (random() - 0.5) * exp(-tc * 55) * 0.3;
-    var cl = (bi & 1) ? (random() - 0.5) * (exp(-tb * 11) * 0.55 + exp(-tb * 4) * 0.14) : 0;
-    var hat = (step & 3) === 2 ? (random() - 0.5) * exp(-ts * 45) * 0.22 : 0;
-    var lfo = 0.6 + 0.4 * sin(TAU * t / (BAR * 2));
-    var pad = (sin(TAU * 82.41 * t) + sin(TAU * 82.75 * t) + 0.7 * sin(TAU * 123.47 * t) + 0.5 * sin(TAU * 174.61 * t + sin(TAU * 0.2 * t) * 2)) * 0.07 * lfo;
-    var l = k + rumble + pad + clank + cl * 0.8 + hat * 0.5;
-    var r = k + rumble + pad + clank * 0.6 + cl * 0.8 + hat;
-    return [tanh(l * 1.1) * 0.9, tanh(r * 1.1) * 0.9];
-};`;
-
-
-// =====================================================================
-//  MOTOR
-// =====================================================================
-
-// Cada tema: fuente, tipo, ritmo (para alinear las transiciones), volumen
-// (trim, calibrado para que todos suenen parecido) y tiempos de fundido (s).
-//   type 'byte' → t es una muestra entera a `rate` Hz
-//   type 'func' → t es el tiempo en segundos
-//   major      → al entrar suena un riser + impacto (cambio de "escena")
-const MUSIC_TRACKS = {
-    happy:  { src: SRC_HAPPY,  type: 'byte', rate: 8000,  beat: 0.6,        bar: 2.4,         trim: 0.90, fadeIn: 2.5, fadeOut: 3.5 },
-    shock:  { src: SRC_SHOCK,  type: 'func',              beat: 0.93,       bar: 1.86,        trim: 0.70, fadeIn: 2.5, fadeOut: 5.0 },
-    addict: { src: SRC_ADDICT, type: 'func',              beat: 60 / 165,   bar: 240 / 165,   trim: 1.10, fadeIn: 6.0, fadeOut: 7.0 },
-    epic:   { src: SRC_EPIC,   type: 'byte', rate: 44100, beat: 0.6192,     bar: 2.4768,      trim: 0.50, clip: 1, heavy: true, fadeIn: 6.0, fadeOut: 7.0, major: true },
-    boss:   { src: SRC_BOSS,   type: 'func',              beat: 0.4,        bar: 1.6,         trim: 1.05, fadeIn: 2.5, fadeOut: 5.0, major: true },
-    abyss:  { src: SRC_ABYSS,  type: 'func',              beat: 60 / 128,   bar: 240 / 128,   trim: 0.58, fadeIn: 8.0, fadeOut: 8.0, major: true }
-};
-const MUSIC_ORDER = ['happy', 'shock', 'addict', 'epic', 'boss', 'abyss'];
-
-const MUSIC_SR = 16000;       // frecuencia interna (16 kHz: poca CPU). Se sube a la del dispositivo con interpolación.
-const MUSIC_FRAMES = 4096;    // fotogramas de salida por bloque (~90 ms)
-const MUSIC_LOOKAHEAD = 0.4;  // segundos que se preparan por adelantado (colchón si el juego se atasca)
-const MUSIC_BAND_HZ = 180;    // corte del "intercambio de graves" entre temas
-const MUSIC_TWO_PI = Math.PI * 2;
-
-const musClamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
-const musStep = (a, b, x) => { x = musClamp01((x - a) / (b - a)); return x * x * (3 - 2 * x); };
-
-// Crea la función de un tema, con with(Math) y su estado propio.
-// Q = ajustes de calidad compartidos (Q.n: capas del tema epic).
-function makeGen(body, Q) {
-    return new Function('int', 'Q', 'with (Math) {' + body + '}')(Math.trunc, Q);
+:root {
+    --neon-pink: #ff007f;
+    --neon-cyan: #00f3ff;
+    --neon-yellow: #ffe600;
+    --neon-purple: #b537f2;
+    --neon-green: #00ff66;
+    --neon-red: #ff3333;
+    --bg-dark: #05010a;
+    --neon-white: #ffffff;
 }
 
-class MusicEngine {
-    constructor(ctx, dest) {
-        this.ctx = ctx;
-        this.level = 0.6;
-        this.out = ctx.createGain();
-        this.out.gain.value = this.level;
-        this.out.connect(dest);
-
-        // Calidad: en pantallas táctiles (móviles) el tema epic se calcula con menos capas y
-        // a media resolución; en PC, completo. Si el dispositivo va justo, baja solo.
-        this.touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-        this.Q = this.touch ? { n: 8, hold: true } : { n: 16, hold: false };
-        this.gens = {};
-        for (const k of MUSIC_ORDER) {
-            this.gens[k] = Object.assign({
-                id: k, fn: null, on: false, start: null, w: 0, ws: 0, target: 0, key: -1, cache: null,
-                sL: 0, sR: 0, lL: 0, lR: 0, sa: 1, gl: 0, gh: 0, broken: false, xL: 0, xR: 0, dL: 0, dR: 0
-            }, MUSIC_TRACKS[k]);
-        }
-        this.list = MUSIC_ORDER.map(k => this.gens[k]);
-        this.active = [];
-
-        this.running = false;
-        this.fading = false;
-        this.fadeEnd = 0;
-        this.gen = 0;
-        this.timer = 0;
-        this.sources = new Set();
-        this.baseFrame = 0;
-        this.framesDone = 0;
-        this.cpu = 0;
-        this.slowChunks = 0;
-
-        this.bandA = 1 - Math.exp(-MUSIC_TWO_PI * MUSIC_BAND_HZ / MUSIC_SR);
-        this.n = 0;                                   // muestra global (a MUSIC_SR) ya generada
-        this.frac = 0.999999;
-        this.s0L = this.s0R = this.s1L = this.s1R = 0;
-        this.oL = this.oR = 0;
-
-        this.hardReset();
-    }
-
-    // ================= control desde el juego =================
-    start() {
-        const now = this.ctx.currentTime;
-        if (this.running) {
-            if (this.fading) {                        // se estaba apagando: vuelve suavemente
-                this.fading = false;
-                this.out.gain.cancelScheduledValues(now);
-                this.out.gain.setValueAtTime(this.out.gain.value, now);
-                this.out.gain.linearRampToValueAtTime(this.level, now + 0.4);
-            }
-            return;
-        }
-        this.running = true;
-        this.fading = false;
-        this.out.gain.cancelScheduledValues(now);
-        this.out.gain.setValueAtTime(0.0001, now);
-        this.out.gain.linearRampToValueAtTime(this.level, now + 0.5);
-        this.baseFrame = Math.ceil((now + 0.08) * this.ctx.sampleRate);
-        this.framesDone = 0;
-        this.loop(++this.gen);
-    }
-
-    // Sin fundido: corta ya. Con fade (s): la música se "apaga" bajando volumen y cerrando el filtro.
-    stop(fade = 0) {
-        if (!this.running) return;
-        if (fade <= 0) { this.finishStop(); return; }
-        if (this.fading) return;
-        const now = this.ctx.currentTime;
-        this.fading = true;
-        this.fadeEnd = now + fade + 0.1;
-        this.out.gain.cancelScheduledValues(now);
-        this.out.gain.setValueAtTime(Math.max(this.out.gain.value, 0.0001), now);
-        this.out.gain.linearRampToValueAtTime(0.0001, now + fade);
-    }
-
-    finishStop() {
-        this.running = false;
-        this.fading = false;
-        this.gen++;
-        clearTimeout(this.timer);
-        for (const s of this.sources) { try { s.stop(); s.disconnect(); } catch (e) {} }
-        this.sources.clear();
-        const now = this.ctx.currentTime;
-        this.out.gain.cancelScheduledValues(now);
-        this.out.gain.setValueAtTime(0.0001, now);
-    }
-
-    // Nueva partida o vuelta al menú. Si la música sigue sonando, vuelve al tema alegre con
-    // una transición normal (sin cortes). Si estaba parada, empieza de cero.
-    newRun() {
-        if (this.fading) this.finishStop();
-        if (!this.running) { this.hardReset(); return; }
-        this.kills = 0; this.waveKills = 0; this.wave = 0; this.combo = 0;
-        this.section = 'idle';
-        this.urgent = true;
-    }
-
-    onKill() {
-        this.kills++; this.waveKills++;
-        if (this.kills === 1) this.urgent = true;     // primer enemigo: cambio de tema sin esperar al compás
-    }
-    setSection(name) {
-        if (name === this.section) return;
-        if (name === 'boss' || this.section === 'boss') this.urgent = true;
-        this.section = name;
-    }
-    setWave(w) { this.wave = w; this.waveKills = 0; }
-    setCombo(c) { this.combo = c; }
-    setHealth(f) { this.hp = musClamp01(f); }
-    setLevel(v) {
-        this.level = v;
-        if (this.running && !this.fading) this.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
-    }
-    setQuality(lite) {
-        const low = lite || this.touch;
-        this.Q.n = low ? 8 : 16;
-        this.Q.hold = low;
-    }
-
-    // Para depurar desde la consola:  audio.music.getState()
-    getState() {
-        const t = {};
-        for (const g of this.list) if (g.on) t[g.id] = { w: +g.w.toFixed(2), target: +g.target.toFixed(2) };
-        return { kills: this.kills, wave: this.wave, prog: +this.prog().toFixed(2), section: this.section, pending: !!this.pending, cpu: +this.cpu.toFixed(2), tracks: t };
-    }
-
-    // ================= director =================
-    hardReset() {
-        this.kills = 0; this.waveKills = 0; this.wave = 0; this.combo = 0;
-        this.section = 'idle';
-        this.hp = 1;
-        this.energy = 0; this.calm = 0; this.bossF = 0; this.lowhp = 0; this.dark = 0;
-        this.tone = 0; this.toneT = 0; this.drive = 1; this.driveT = 1; this.ga = 1;
-        this.f1L = this.f1R = this.f2L = this.f2R = 0;
-        this.pending = null; this.fx = null; this.urgent = false;
-        this.nzPrev = 0; this.fxPh = 0;
-        for (const g of this.list) {
-            g.on = false; g.start = null; g.w = g.ws = g.target = 0;
-            g.key = -1; g.cache = null; g.sL = g.sR = g.lL = g.lR = g.xL = g.xR = g.dL = g.dR = 0; g.broken = false;
-        }
-        const h = this.gens.happy;
-        h.on = true; h.start = this.n; h.w = h.ws = h.target = 1;
-        h.fn = makeGen(h.src, this.Q);
-        this.refreshActive();
-    }
-
-    refreshActive() { this.active = this.list.filter(g => g.on); }
-
-    // Progreso global: oleada actual + avance dentro de ella (0, 1, 2…). Sin oleadas, por kills.
-    prog() {
-        if (this.wave > 0) return (this.wave - 1) + Math.min(0.95, this.waveKills / (22 + 8 * this.wave));
-        return this.kills / 30;
-    }
-
-    // Qué debe sonar ahora (presencia de cada tema entre 0 y 1).
-    computeDesired() {
-        const d = { happy: 0, shock: 0, addict: 0, epic: 0, boss: 0, abyss: 0 };
-        if (this.section === 'boss') { d.boss = 1; return d; }
-        if (this.kills === 0) { d.happy = 1; return d; }           // alegre hasta el primer enemigo
-        const p = this.prog();
-        d.shock  = 1 - musStep(1.0, 2.4, p);
-        d.addict = musStep(0.3, 1.8, p) * (1 - musStep(5.0, 7.0, p));
-        d.epic   = musStep(3.2, 4.8, p) * (1 - musStep(8.8, 10.8, p));
-        d.abyss  = musStep(8.4, 10.4, p);
-        return d;
-    }
-
-    refTrack() {
-        let best = null;
-        for (const g of this.active) {
-            if (g.start !== null && this.n >= g.start && g.w > 0.05 && (!best || g.ws > best.ws)) best = g;
-        }
-        return best;
-    }
-
-    // Si lo que debe sonar cambió, programa el cambio para el próximo compás (o pulso, si es urgente)
-    // del tema dominante. Así el tema nuevo entra siempre en un tiempo fuerte.
-    checkSchedule() {
-        if (this.pending) return;
-        const des = this.computeDesired();
-        let diff = false, major = false;
-        for (const g of this.list) {
-            const want = des[g.id];
-            if (Math.abs(want - g.target) > 0.03) diff = true;
-            if (want > 0.001 && !g.on && g.major) major = true;
-        }
-        if (!diff) return;
-        const ref = this.refTrack();
-        let at = this.n + 1;
-        if (ref) {
-            const unit = (this.urgent ? ref.beat : ref.bar) * MUSIC_SR;
-            const lead = major ? 0.9 * MUSIC_SR : 0;          // los cambios de escena avisan con un riser
-            const k = Math.ceil((this.n + lead - ref.start) / unit);
-            at = ref.start + Math.round(k * unit);
-            if (at <= this.n) at = this.n + 1;
-        }
-        this.urgent = false;
-        this.pending = { at };
-        if (major) this.fx = { from: this.n, hit: at };
-    }
-
-    commit(n) {
-        const des = this.computeDesired();
-        let major = false;
-        for (const g of this.list) {
-            const want = des[g.id];
-            if (want > 0.001 && !g.on) {                      // entra un tema: arranca desde el principio, en el tiempo fuerte
-                g.on = true; g.start = n; g.key = -1; g.cache = null; g.w = 0; g.ws = 0;
-                g.sL = g.sR = g.lL = g.lR = g.xL = g.xR = g.dL = g.dR = 0; g.broken = false;
-                g.fn = makeGen(g.src, this.Q);
-                if (g.major) major = true;
-            }
-            g.target = want < 0.001 ? 0 : want;
-        }
-        if (major && !this.fx) this.fx = { from: n, hit: n };
-        this.pending = null;
-        this.refreshActive();
-    }
-
-    // Se llama una vez por bloque: suaviza los macros y mueve los pesos hacia sus objetivos.
-    macros(dt) {
-        const k = (tau) => 1 - Math.exp(-dt / tau);
-        const energyT = musClamp01(this.combo / 18);
-        this.energy += (energyT - this.energy) * k(energyT > this.energy ? 0.5 : 4);
-        this.calm += ((this.section === 'calm' ? 1 : 0) - this.calm) * k(1);
-        this.bossF += ((this.section === 'boss' ? 1 : 0) - this.bossF) * k(1.5);
-        this.lowhp += (musClamp01((0.38 - this.hp) / 0.26) - this.lowhp) * k(0.6);
-        this.dark += (musClamp01(this.prog() / 12) - this.dark) * k(3);
-
-        // El sonido se oscurece con el progreso y en peligro; se abre con el combo.
-        this.toneT = musClamp01(this.dark * 0.55 + this.calm * 0.22 + this.lowhp * 0.55 + this.bossF * 0.08 - this.energy * 0.3 + (this.fading ? 0.9 : 0));
-        this.driveT = 1 + 1.4 * this.dark + 0.4 * this.bossF + 0.35 * this.energy;
-
-        this.checkSchedule();
-
-        for (const g of this.list) {
-            if (!g.on) continue;
-            if (g.w < g.target) g.w = Math.min(g.target, g.w + dt / g.fadeIn);
-            else g.w = Math.max(g.target, g.w - dt / g.fadeOut);
-        }
-        let gone = false;
-        for (const g of this.list) {
-            if (g.on && g.target === 0 && g.w <= 0.002 && g.ws < 0.004) { g.on = false; g.start = null; g.w = g.ws = 0; gone = true; }
-        }
-        if (gone) this.refreshActive();
-    }
-
-    // ================= síntesis =================
-    // Coeficientes que se refrescan cada 64 muestras (más barato que cada muestra).
-    coefs() {
-        this.tone += (this.toneT - this.tone) * 0.02;
-        this.drive += (this.driveT - this.drive) * 0.02;
-        const cut = 7000 * Math.pow(0.12, this.tone);
-        this.ga = 1 - Math.exp(-MUSIC_TWO_PI * cut / MUSIC_SR);
-        for (const g of this.active) {
-            g.ws += (g.w - g.ws) * 0.12;
-            g.gh = Math.sin(g.ws * Math.PI / 2);                              // agudos: potencia constante
-            g.gl = Math.sin(musStep(0.3, 0.9, g.ws) * Math.PI / 2);           // graves: entran más tarde y salen antes
-            g.sa = 1 - Math.exp(-MUSIC_TWO_PI * (350 * Math.pow(46, g.ws)) / MUSIC_SR);  // el tema "se abre" al entrar
-        }
-    }
-
-    // Genera UNA muestra a MUSIC_SR en this.oL / this.oR
-    sample() {
-        const n = this.n++;
-        if (this.pending && n >= this.pending.at) this.commit(n);
-        if ((n & 63) === 0) this.coefs();
-
-        let sl = 0, sr = 0;
-        const act = this.active;
-        for (let i = 0; i < act.length; i++) {
-            const g = act[i];
-            if (g.start === null || n < g.start) continue;
-            const loc = n - g.start;
-            let v, vl, vr;
-            try {
-                if (g.type === 'byte') {
-                    const tt = Math.floor(loc * g.rate / MUSIC_SR);
-                    if (tt !== g.key && !(g.heavy && this.Q.hold && (loc & 1))) { g.key = tt; g.cache = g.fn(tt); }
-                    v = g.cache;
-                } else {
-                    v = g.fn(loc / MUSIC_SR, MUSIC_SR);
-                }
-            } catch (e) { g.broken = true; g.fn = () => 0; v = 0; }
-            if (typeof v === 'number') { vl = vr = v; }
-            else if (v) { vl = v[0]; vr = v.length > 1 ? v[1] : v[0]; }
-            else { vl = vr = 0; }
-            if (g.clip) {                                 // como en Bytebeat Composer: recorta a ±clip
-                vl = vl > g.clip ? g.clip : vl < -g.clip ? -g.clip : vl;
-                vr = vr > g.clip ? g.clip : vr < -g.clip ? -g.clip : vr;
-            }
-            if (!(vl > -6 && vl < 6)) vl = 0;             // descarta NaN / infinitos / valores locos
-            if (!(vr > -6 && vr < 6)) vr = 0;
-            // bloqueador de continua (quita el desfase que algunas fórmulas arrastran)
-            const yl = vl - g.xL + 0.998 * g.dL, yr = vr - g.xR + 0.998 * g.dR;
-            g.xL = vl; g.xR = vr; g.dL = yl; g.dR = yr; vl = yl; vr = yr;
-
-            g.sL += g.sa * (vl - g.sL); g.sR += g.sa * (vr - g.sR);                // filtro que se abre
-            g.lL += this.bandA * (g.sL - g.lL); g.lR += this.bandA * (g.sR - g.lR); // separa graves
-            sl += (g.lL * g.gl + (g.sL - g.lL) * g.gh) * g.trim;
-            sr += (g.lR * g.gl + (g.sR - g.lR) * g.gh) * g.trim;
-        }
-
-        // Riser antes de un cambio de escena + impacto en el tiempo fuerte
-        const fx = this.fx;
-        if (fx) {
-            let v = 0;
-            if (n < fx.hit) {
-                const u = (n - fx.from) / Math.max(1, fx.hit - fx.from);
-                const nz = Math.random() * 2 - 1;
-                this.fxPh += MUSIC_TWO_PI * 180 * Math.pow(8, u) / MUSIC_SR;
-                v = ((nz - this.nzPrev) * 0.5 + Math.sin(this.fxPh) * 0.35) * u * u * u * u * 0.22;
-                this.nzPrev = nz;
-            } else {
-                const tau = (n - fx.hit) / MUSIC_SR;
-                if (tau > 1.8) this.fx = null;
-                else v = Math.sin(MUSIC_TWO_PI * (46 * tau + 40 * (1 - Math.exp(-tau * 11)) / 11)) * Math.exp(-tau * 3) * 0.6
-                       + (Math.random() * 2 - 1) * Math.exp(-tau * 10) * 0.18;
-            }
-            sl += v; sr += v;
-        }
-
-        // Filtro global de 2 polos (oscurece) + saturación suave
-        const a = this.ga;
-        this.f1L += a * (sl - this.f1L); this.f2L += a * (this.f1L - this.f2L);
-        this.f1R += a * (sr - this.f1R); this.f2R += a * (this.f1R - this.f2R);
-        const dr = this.drive, comp = 0.9 / (1 + 0.15 * (dr - 1));
-        let ol = Math.tanh(this.f2L * dr) * comp, or = Math.tanh(this.f2R * dr) * comp;
-
-        // Latido cuando queda poca vida (no pasa por el filtro, siempre se oye)
-        if (this.lowhp > 0.02) {
-            const period = 0.95 - 0.35 * this.lowhp;
-            const u = (n / MUSIC_SR) % period, u2 = u - 0.2;
-            let hb = Math.sin(MUSIC_TWO_PI * 58 * u) * Math.exp(-u * 20) + 0.5 * Math.sin(MUSIC_TWO_PI * 95 * u) * Math.exp(-u * 26);
-            if (u2 > 0) hb += 0.7 * (Math.sin(MUSIC_TWO_PI * 58 * u2) * Math.exp(-u2 * 20) + 0.5 * Math.sin(MUSIC_TWO_PI * 95 * u2) * Math.exp(-u2 * 26));
-            hb *= 0.4 * this.lowhp;
-            ol += hb; or += hb;
-        }
-        this.oL = ol > 1 ? 1 : ol < -1 ? -1 : ol;
-        this.oR = or > 1 ? 1 : or < -1 ? -1 : or;
-    }
-
-    // Un bloque de audio a la frecuencia real del dispositivo (interpolando desde MUSIC_SR).
-    // Al usar la misma frecuencia que el contexto y tiempos exactos, los bloques empalman sin clics.
-    renderChunk(F, dur) {
-        this.macros(dur);
-        const buf = this.ctx.createBuffer(2, F, this.ctx.sampleRate);
-        const L = buf.getChannelData(0), R = buf.getChannelData(1);
-        const step = MUSIC_SR / this.ctx.sampleRate;
-        let s0L = this.s0L, s0R = this.s0R, s1L = this.s1L, s1R = this.s1R, frac = this.frac;
-        for (let i = 0; i < F; i++) {
-            frac += step;
-            while (frac >= 1) {
-                frac -= 1;
-                s0L = s1L; s0R = s1R;
-                this.sample();
-                s1L = this.oL; s1R = this.oR;
-            }
-            L[i] = s0L + (s1L - s0L) * frac;
-            R[i] = s0R + (s1R - s0R) * frac;
-        }
-        this.s0L = s0L; this.s0R = s0R; this.s1L = s1L; this.s1R = s1R; this.frac = frac;
-        return buf;
-    }
-
-    // ================= programación en el contexto de audio =================
-    loop(id) {
-        if (id !== this.gen) return;
-        const ctx = this.ctx, sr = ctx.sampleRate, F = MUSIC_FRAMES, dur = F / sr;
-        for (let guard = 0; guard < 8; guard++) {
-            const when = (this.baseFrame + this.framesDone) / sr;
-            if (when > ctx.currentTime + MUSIC_LOOKAHEAD) break;
-            if (when < ctx.currentTime + 0.01) {                 // nos quedamos cortos: reenganchar
-                this.baseFrame = Math.ceil((ctx.currentTime + 0.06) * sr);
-                this.framesDone = 0;
-                continue;
-            }
-            const t0 = performance.now();
-            const buf = this.renderChunk(F, dur);
-            this.cpu += ((performance.now() - t0) / 1000 / dur - this.cpu) * 0.1;
-            const src = ctx.createBufferSource();
-            src.buffer = buf;
-            src.connect(this.out);
-            src.onended = () => { this.sources.delete(src); src.disconnect(); };
-            this.sources.add(src);
-            src.start(when);
-            this.framesDone += F;
-        }
-        // Si el dispositivo va justo de CPU, aligera el tema epic (el más pesado)
-        if (this.cpu > 0.6) {
-            if (++this.slowChunks > 40) {
-                this.slowChunks = 0;
-                if (!this.Q.hold) this.Q.hold = true; else if (this.Q.n > 6) this.Q.n = 6;
-            }
-        } else this.slowChunks = 0;
-
-        if (this.fading && ctx.currentTime >= this.fadeEnd) { this.finishStop(); return; }
-        this.timer = setTimeout(() => this.loop(id), 30);
-    }
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
+
+body, html {
+    width: 100%;
+    height: 100%;
+    background-color: var(--bg-dark);
+    overflow: hidden;
+    font-family: 'Orbitron', sans-serif;
+    touch-action: none;
+}
+
+#gameWrapper {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    top: 0; left: 0;
+    perspective: 1000px;
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    z-index: 1;
+    transform-origin: center center;
+    transition: transform 0.05s linear;
+    cursor: crosshair; /* Cursor de mira para PC */
+}
+
+#crt-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 100;
+    pointer-events: none;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+    background-size: 100% 4px;
+    box-shadow: inset 0 0 100px rgba(0,0,0,0.9);
+    mix-blend-mode: multiply;
+}
+
+.crt-flicker { animation: flicker 0.15s infinite; }
+@keyframes flicker {
+    0% { opacity: 0.95; }
+    50% { opacity: 0.85; }
+    100% { opacity: 0.95; }
+}
+
+.chromatic-glitch {
+    animation: rgb-split 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+@keyframes rgb-split {
+    0% { text-shadow: 4px 0 0 red, -4px 0 0 cyan; transform: translate(2px, -2px); }
+    50% { text-shadow: -4px 0 0 red, 4px 0 0 cyan; transform: translate(-2px, 2px); }
+    100% { text-shadow: 0 0 0 transparent; transform: translate(0, 0); }
+}
+
+#uiLayer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 50;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 20px;
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+}
+
+.hud-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.score-container {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 900;
+    text-shadow: 0 0 10px var(--neon-cyan);
+    letter-spacing: 2px;
+}
+
+#highScoreEl {
+    font-size: 0.8rem;
+    color: var(--neon-purple);
+    text-shadow: 0 0 5px var(--neon-purple);
+}
+
+.combo-container {
+    color: var(--neon-yellow);
+    text-shadow: 0 0 15px var(--neon-pink);
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-align: right;
+    opacity: 0;
+    transform: scale(0.5) skewX(-10deg);
+    transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.combo-container.active {
+    opacity: 1;
+    transform: scale(1) skewX(-10deg);
+}
+
+.hud-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    width: 100%;
+}
+
+.bars-container { width: 40%; max-width: 200px; }
+.bar-bg {
+    width: 100%; height: 12px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.3);
+    margin-top: 5px; position: relative;
+}
+.bar-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+#healthFill { background: var(--neon-red); box-shadow: 0 0 10px var(--neon-red); }
+#dashFill { background: var(--neon-cyan); box-shadow: 0 0 10px var(--neon-cyan); }
+
+.weapon-text {
+    color: white; font-size: 1.2rem; font-weight: bold;
+    text-shadow: 0 0 5px var(--neon-white); text-align: right;
+}
+#weaponAmmo { color: var(--neon-yellow); font-size: 1.5rem; text-align: right; }
+
+#screens {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    background: rgba(5, 1, 10, 0.85); backdrop-filter: blur(10px);
+    z-index: 200; pointer-events: auto;
+}
+
+.title {
+    color: white; font-size: clamp(2.5rem, 8vw, 5rem);
+    font-weight: 900; text-align: center; letter-spacing: 2px;
+    text-shadow: 2px 2px 0px var(--neon-cyan), -2px -2px 0px var(--neon-pink), 0 0 20px var(--neon-pink);
+    margin-bottom: 10px;
+}
+
+.subtitle {
+    color: #ddd; font-size: 0.9rem; margin-bottom: 40px;
+    text-align: center; line-height: 1.6; max-width: 80%;
+}
+.highlight { color: var(--neon-yellow); font-weight: bold; }
+
+.btn {
+    background: transparent; color: var(--neon-cyan);
+    border: 2px solid var(--neon-cyan); padding: 15px 50px;
+    font-size: 1.5rem; font-family: 'Orbitron', sans-serif;
+    font-weight: 900; border-radius: 4px; text-transform: uppercase;
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.2) inset, 0 0 15px rgba(0, 243, 255, 0.4);
+    cursor: pointer; transition: all 0.1s;
+}
+.btn:active { background: var(--neon-cyan); color: var(--bg-dark); transform: scale(0.95); }
+.hidden { display: none !important; }
+ 
+/* ===== Upgrade pack ===== */
+#waveEl { color: var(--neon-cyan); font-weight: 900; font-size: 1.1rem; letter-spacing: 4px; text-shadow: 0 0 12px var(--neon-cyan); }
+#bossBar { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); width: min(70%, 520px); text-align: center; color: var(--neon-pink); font-size: .7rem; letter-spacing: 6px; text-shadow: 0 0 8px var(--neon-pink); }
+#bossBar .bar-bg { height: 16px; border-color: var(--neon-pink); }
+#bossFill { background: var(--neon-pink); box-shadow: 0 0 14px var(--neon-pink); }
+.bar-bg { overflow: hidden; clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
+.bar-bg::after { content: ''; position: absolute; inset: 0; z-index: 2; background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(0,0,0,.4) 8px 10px); }
+.bar-fill { position: relative; z-index: 1; }
+#healthGhost { position: absolute; top: 0; left: 0; z-index: 0; background: #fff; opacity: .9; }
+ 
+/* ===== Menús, pausa y ajustes ===== */
+.panel {
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    width: 100%; max-height: 100%; overflow-y: auto; padding: 20px;
+}
+.panel-title {
+    color: var(--neon-yellow); font-size: 2rem; font-weight: 900; letter-spacing: 4px;
+    text-shadow: 0 0 12px var(--neon-yellow);
+}
+.record {
+    color: var(--neon-purple); font-size: .9rem; letter-spacing: 2px;
+    text-shadow: 0 0 6px var(--neon-purple); margin-bottom: 30px;
+}
+.menu-col { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(90%, 360px); }
+.menu-col .btn { width: 100%; }
+.btn-sm { font-size: 1rem; padding: 10px 20px; }
+.btn-danger { color: var(--neon-red); border-color: var(--neon-red); box-shadow: 0 0 15px rgba(255, 51, 51, .35); }
+.btn.on { background: rgba(0, 243, 255, .15); }
+.hint, .controls-list p { color: #bbb; font-size: .8rem; line-height: 1.6; text-align: center; max-width: 90%; }
+.controls-list { display: flex; flex-direction: column; gap: 12px; max-width: min(90%, 560px); }
+.slider-row {
+    color: #ddd; font-size: .9rem; display: flex; flex-direction: column;
+    align-items: center; gap: 8px; width: 100%;
+}
+.slider-row input { width: 100%; accent-color: var(--neon-cyan); }
+.hud-label { color: white; font-size: .7rem; }
+.pause-btn {
+    pointer-events: auto; background: transparent; color: var(--neon-cyan);
+    border: 2px solid var(--neon-cyan); width: 44px; height: 44px; align-self: flex-end;
+    font-family: 'Orbitron', sans-serif; font-weight: 900; border-radius: 4px; cursor: pointer;
+}
+#fpsEl { position: absolute; top: 70px; right: 20px; color: var(--neon-green); font-size: .7rem; }
+#screens { overflow-y: auto; }
+
+/* Modo rendimiento: menos efectos costosos (el resplandor lo anula game.js) */
+body.perf #crt-overlay { display: none; }
+body.perf .crt-flicker { animation: none; }
+body.perf #screens { backdrop-filter: none; background: rgba(5, 1, 10, .97); }
+body.perf #gameCanvas { transition: none; }
+body.perf .btn, body.perf .combo-container { transition: none; box-shadow: none; }
+
+/* =====================================================================
+   MÓVIL Y PANTALLA COMPLETA
+   - El juego ocupa toda el área visible (dvh sigue a la barra del navegador).
+   - HUD y menús respetan muescas y bordes redondeados (safe-area).
+   - Menús que nunca se cortan: si no caben, se desplazan.
+   - Modo horizontal bajo (móviles girados): todo se compacta.
+   ===================================================================== */
+:root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --pad: clamp(10px, 2.2vmin, 20px);
+}
+
+html, body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+#gameWrapper { position: fixed; inset: 0; width: 100%; height: 100%; }
+
+#uiLayer {
+    padding: var(--pad);
+    padding-top: max(var(--pad), var(--sat));
+    padding-right: max(var(--pad), var(--sar));
+    padding-bottom: max(var(--pad), var(--sab));
+    padding-left: max(var(--pad), var(--sal));
+}
+.score-container { font-size: clamp(.95rem, 3.4vmin, 1.2rem); }
+.combo-container { font-size: clamp(1.1rem, 4vmin, 1.5rem); }
+#waveEl { font-size: clamp(.85rem, 3vmin, 1.1rem); letter-spacing: clamp(2px, .8vmin, 4px); }
+#bossBar { top: calc(max(var(--pad), var(--sat)) + 46px); }
+#fpsEl { top: calc(max(var(--pad), var(--sat)) + 52px); right: max(var(--pad), var(--sar)); }
+.pause-btn { width: 48px; height: 48px; flex: none; }
+
+/* Menús: pantalla completa real, centrado que nunca recorta el contenido */
+#screens {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: max(10px, var(--sat)) max(10px, var(--sar)) max(10px, var(--sab)) max(10px, var(--sal));
+}
+.panel { margin: auto; max-height: none; overflow: visible; padding: clamp(10px, 3vmin, 20px); }
+
+.title { font-size: clamp(2rem, min(9vw, 13vh), 5rem); }
+.subtitle { margin-bottom: clamp(12px, 4vh, 40px); max-width: min(90%, 640px); }
+.panel-title { font-size: clamp(1.4rem, 5vh, 2rem); }
+.btn { padding: clamp(10px, 2vh, 15px) clamp(22px, 6vw, 50px); font-size: clamp(1.1rem, 3.4vh, 1.5rem); }
+.btn-sm { padding: clamp(8px, 1.6vh, 10px) 20px; font-size: clamp(.9rem, 2.6vh, 1rem); }
+.record { margin-bottom: clamp(10px, 3vh, 30px); }
+
+@media (pointer: coarse) {
+    .slider-row input { height: 36px; }
+    .btn, .btn-sm { min-height: 44px; }
+}
+
+/* Móvil en horizontal (poca altura): todo más compacto */
+@media (max-height: 520px) {
+    .panel { gap: 8px; padding: 8px; }
+    .menu-col { gap: 8px; }
+    .title { margin-bottom: 2px; }
+    .subtitle { font-size: .75rem; line-height: 1.4; margin-bottom: 8px; }
+    .controls-list { gap: 6px; }
+    .hint, .controls-list p { font-size: .72rem; line-height: 1.4; }
+    .slider-row { font-size: .8rem; gap: 4px; }
+    .hud-label { font-size: .6rem; }
+    .bar-bg { height: 10px; }
+    .weapon-text { font-size: 1rem; }
+    #weaponAmmo { font-size: 1.2rem; }
+}
+@media (max-height: 380px) {
+    .title { font-size: clamp(1.6rem, 11vh, 2.6rem); }
+    .btn { padding: 8px 20px; font-size: 1rem; }
+    .btn-sm { padding: 6px 14px; font-size: .85rem; }
+}
+
+/* =====================================================================
+   v3 · COMODIDAD EN MÓVIL
+   - body.touch (lo pone game.js en pantallas táctiles) activa el HUD compacto.
+   - HP y arma suben arriba: los pulgares tapan las esquinas de abajo.
+   - Botón de PULSO circular con anillo de recarga, cerca del pulgar.
+   ===================================================================== */
+#waveEl {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: max(var(--pad), var(--sat)); white-space: nowrap; text-align: center; pointer-events: none;
+}
+.hud-right { display: flex; align-items: flex-start; gap: 10px; }
+.pause-btn {
+    align-self: auto; touch-action: manipulation;
+    width: clamp(40px, 11vmin, 48px); height: clamp(40px, 11vmin, 48px); font-size: .85rem;
+}
+
+/* Botón de pulso (solo táctil) */
+.pulse-btn {
+    --p: 100;
+    --pulse-size: clamp(64px, 17vmin, 84px);
+    display: none; position: absolute; z-index: 60; pointer-events: auto;
+    width: var(--pulse-size); height: var(--pulse-size);
+    padding: 0; border: 0; border-radius: 50%;
+    right: max(var(--pad), var(--sar));
+    bottom: calc(max(var(--pad), var(--sab)) + clamp(96px, 24vh, 190px));
+    background: conic-gradient(var(--neon-cyan) calc(var(--p) * 1%), rgba(255, 255, 255, .14) 0);
+    color: #fff; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: .62rem; letter-spacing: 1px;
+    touch-action: none; cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 243, 255, .25);
+    transition: transform .08s;
+}
+.pulse-btn::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: rgba(5, 1, 10, .82); }
+.pulse-btn::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; }   /* zona de toque más grande que el dibujo */
+.pulse-btn span { position: relative; z-index: 1; text-shadow: 0 0 6px var(--neon-cyan); }
+.pulse-btn:active { transform: scale(.92); }
+.pulse-btn.ready { animation: pulse-ready 1.4s ease-in-out infinite; }
+.pulse-btn.deny { animation: pulse-deny .18s linear; }
+@keyframes pulse-ready {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 243, 255, .5); }
+    50% { box-shadow: 0 0 24px rgba(0, 243, 255, .95); }
+}
+@keyframes pulse-deny {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+body.touch .pulse-btn { display: flex; align-items: center; justify-content: center; }
+body.pulse-left .pulse-btn { right: auto; left: max(var(--pad), var(--sal)); }
+body.perf .pulse-btn { animation: none; box-shadow: none; }
+
+/* HUD compacto en táctil */
+body.touch .score-container { font-size: 13px; letter-spacing: 1px; line-height: 1.2; }
+body.touch #highScoreEl { font-size: 10px; }
+body.touch #waveEl { font-size: 13px; letter-spacing: 3px; }
+body.touch .combo-container { font-size: 16px; line-height: 1.15; }
+body.touch .hud-bottom {
+    position: absolute; width: auto; align-items: flex-start; pointer-events: none;
+    top: calc(max(var(--pad), var(--sat)) + 50px);
+    left: max(var(--pad), var(--sal)); right: max(var(--pad), var(--sar));
+}
+body.touch .bars-container { width: 36%; max-width: 150px; }
+body.touch .bars-container .bar-bg { height: 8px; }
+body.touch .hud-label { font-size: 9px; }
+body.touch .dash-block { display: none; }
+body.touch .weapon-text { font-size: 12px; }
+body.touch #weaponAmmo { font-size: 15px; }
+body.touch #bossBar { top: calc(max(var(--pad), var(--sat)) + 78px); width: min(60%, 420px); font-size: .6rem; letter-spacing: 4px; }
+body.touch #bossBar .bar-bg { height: 12px; }
+body.touch #fpsEl { top: calc(max(var(--pad), var(--sat)) + 90px); right: auto; left: max(var(--pad), var(--sal)); }
+
+/* Ajustes solo para táctil / aviso de rotación */
+body:not(.touch) .touch-only { display: none; }
+.rotate-hint { display: none; color: var(--neon-yellow); font-size: .75rem; text-align: center; margin-bottom: 14px; }
+@media (pointer: coarse) and (orientation: portrait) { .rotate-hint { display: block; } }
+
+/* Móvil en horizontal: menús en dos columnas, sin scroll innecesario */
+@media (max-height: 520px) and (orientation: landscape) {
+    #pMain, #pOver {
+        display: grid; grid-template-columns: 1fr minmax(220px, 320px);
+        column-gap: clamp(16px, 5vw, 48px); align-items: center; justify-items: center;
+        width: min(100%, 860px);
+    }
+    #pMain .title, #pOver .title { grid-column: 1; font-size: clamp(1.8rem, 12vh, 3.2rem); }
+    #pMain .subtitle, #pOver .subtitle, #pMain .record { grid-column: 1; margin-bottom: 0; }
+    #pMain .menu-col, #pOver .menu-col { grid-column: 2; grid-row: 1 / span 4; }
+    #pOptions .menu-col { display: grid; grid-template-columns: 1fr 1fr; width: min(96%, 760px); gap: 8px 12px; }
+    #pOptions .menu-col .hint { order: 99; grid-column: 1 / -1; max-width: 100%; }
+}
+
+/* =====================================================================
+   v4 · Aviso para jugar en horizontal
+   ===================================================================== */
+#rotateOverlay {
+    position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center;
+    background: rgba(5, 1, 10, .94); color: #ddd; backdrop-filter: blur(6px);
+}
+.rot-phone {
+    position: relative; width: 54px; height: 96px; border: 3px solid var(--neon-cyan); border-radius: 10px;
+    box-shadow: 0 0 18px rgba(0, 243, 255, .5); animation: rot-turn 2.4s ease-in-out infinite;
+}
+.rot-phone::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 14px; height: 3px; margin-left: -7px; background: var(--neon-cyan); border-radius: 2px; }
+@keyframes rot-turn { 0%, 20% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+.rot-title { color: var(--neon-yellow); font-weight: 900; font-size: 1.2rem; letter-spacing: 3px; text-shadow: 0 0 10px var(--neon-yellow); }
+.rot-text { font-size: .85rem; line-height: 1.6; max-width: 320px; }
+body.perf .rot-phone { animation: none; transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+    .rot-phone { animation: none; transform: rotate(-90deg); }
+    .crt-flicker { animation: none; }
+}
+
+/* v5 · CRT más ligero y legible: sin parpadeo ni mezcla de capas (misma imagen, mucho menos coste) */
+#crt-overlay {
+    mix-blend-mode: normal;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, .14) 50%);
+    background-size: 100% 4px;
+    box-shadow: inset 0 0 90px rgba(0, 0, 0, .55);
+}
+.crt-flicker { animation: none; }
+body[data-q="2"] #crt-overlay, body[data-q="3"] #crt-overlay { display: none; }
