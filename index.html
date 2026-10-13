@@ -75,6 +75,7 @@
                 <button class="btn btn-sm touch-only" id="pulseSideBtn" data-action="pulseSide"></button>
                 <button class="btn btn-sm toggle touch-only" data-action="toggle" data-key="aimAssist"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="shake"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="sway"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="vibrate"></button>
                 <button class="btn btn-sm toggle" data-action="toggle" data-key="showFps"></button>
                 <label class="slider-row">VOLUMEN GENERAL <span id="volVal">60%</span>
@@ -122,6 +123,13 @@
             </div>
         </section>
 
+    </div>
+
+    <div id="rotateOverlay" class="hidden" role="dialog" aria-live="polite">
+        <div class="rot-phone"></div>
+        <p class="rot-title">GIRA EL TELÉFONO</p>
+        <p class="rot-text">Se juega mucho mejor en horizontal: ves más campo y los pulgares no tapan la acción.</p>
+        <button class="btn btn-sm" id="rotateDismiss">SEGUIR EN VERTICAL</button>
     </div>
 
     <script src="music.js"></script>
