@@ -27,7 +27,7 @@ let zoom = 1, dpr = 1, renderK = 1;   // zoom del mundo, densidad de píxeles, z
 let lastTime = 0;
 const PULSE_COOLDOWN = 5;
 const Settings = Object.assign(
-    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1, sway: !matchMedia('(prefers-reduced-motion: reduce)').matches },
+    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1, autoQ: true, sway: !matchMedia('(prefers-reduced-motion: reduce)').matches },
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
 function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
@@ -36,9 +36,10 @@ function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.strin
     const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
     Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', {
         get() { return desc.get.call(this); },
-        set(v) { desc.set.call(this, Settings.perf ? 0 : v * renderK); }
+        set(v) { desc.set.call(this, Settings.perf ? 0 : v * renderK * Q.glow); }
     });
 })();
+const Q = { level: 0, glow: 1 };   // calidad automática: 0 = máxima ... 3 = mínima
 let bestScore = localStorage.getItem('neonCarnageBest') || 0;
 DOM.highScore.innerText = `HI: ${bestScore.toString().padStart(6, '0')}`;
  
@@ -72,7 +73,7 @@ function resize() {
     const ow = width, oh = height;
     viewW = vw; viewH = vh;
     zoom = computeZoom();
-    dpr = Settings.perf ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    dpr = Settings.perf ? 1 : Math.min(window.devicePixelRatio || 1, [isTouchUI() ? 1.5 : 2, 1.25, 1, 1][Q.level]);
     renderK = zoom * dpr;
     width = vw / zoom; height = vh / zoom;
     const pw = Math.round(vw * dpr), ph = Math.round(vh * dpr);
@@ -84,7 +85,7 @@ function resize() {
     if (key === _viewKey) return;
     _viewKey = key;
     if (typeof engine !== 'undefined' && engine) {
-        if (ow && oh) engine.rescaleWorld(ow, oh);
+        if (ow && oh && (Math.abs(ow - width) > 0.5 || Math.abs(oh - height) > 0.5)) engine.rescaleWorld(ow, oh);
         engine.redrawBackground();
     }
 }
@@ -911,12 +912,12 @@ class GameEngine {
         } catch(e) {}
     }
  
-    addShake(amount) { if (Settings.shake) this.shakeAmount = Math.min(this.shakeAmount + amount, 80); }
+    addShake(amount) { if (Settings.shake) this.shakeAmount = Math.min(this.shakeAmount + amount, 50); }
     doHitStop(duration) { this.hitStop = Math.max(this.hitStop, duration); }
  
     spawnText(x, y, text, color) { this.particles.push(new Particle(x, y, color, text, 0, 0, 0, 'text')); }
     spawnParticle(x, y, color, amount, vx=0, vy=0, speed=200, type='normal') {
-        const max = Settings.perf ? 350 : 1200, n = Settings.perf ? Math.ceil(amount * 0.4) : amount;
+        const max = Settings.perf ? 350 : [800, 600, 450, 350][Q.level], n = Math.ceil(amount * (Settings.perf ? 0.4 : [1, 0.75, 0.6, 0.5][Q.level]));
         for(let i=0; i<n && this.particles.length<max; i++) this.particles.push(new Particle(x, y, color, speed, vx, vy, 5, type));
     }
  
@@ -927,7 +928,7 @@ class GameEngine {
         this.combo++; this.comboTimer = this.maxComboTimer;
         
         if(x && y) { this.spawnText(x, y, '+' + total, C.white); if (this.combo % 5 === 0) this.spawnText(x, y - 26, 'COMBO x' + this.combo + '!', C.yellow); }
-        this.addShake(this.combo * 0.4);
+        this.addShake(Math.min(this.combo * 0.4, 6));
         audio.playHit(); audio.music.setCombo(this.combo); audio.music.onKill();
         
         if (this.combo > 10 && this.combo % 5 === 0) DOM.uiLayer.classList.add('chromatic-glitch');
@@ -1163,7 +1164,7 @@ class GameEngine {
  
         if (this.state === 'PLAYING') this.drawJoysticks(ctx);
         
-        if (this.hitStop > 0 && this.shakeAmount > 15) {
+        if (this.hitStop > 0 && this.shakeAmount > 15 && !Settings.perf && Q.level === 0) {
             ctx.globalCompositeOperation = 'screen';
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.drawImage(canvas, -2 * dpr, 0);
@@ -1271,11 +1272,11 @@ Object.assign(GameEngine.prototype, {
             ['MINIGUN', 'RAILGUN'].forEach(k => { const s = this.freeSpot(); this.pickups.push(new Pickup(s.x, s.y, k)); });
         } else {
             this.banner('WAVE ' + w, C.cyan);
-            push(0, 1, 0.45, 5 + w * 2);
-            if (w > 1) push(2, 1, 0.8, Math.floor(w / 2));
-            if (w >= 2) push(3, 15 + Math.floor(Math.random() * 6), 1, Math.ceil(w / 3));
+            push(0, 1, 0.6, 4 + w + Math.floor(w / 2));
+            if (w > 1) push(2, 1, 0.9, Math.floor((w + 1) / 3));
+            if (w >= 2) push(3, 8 + Math.floor(Math.random() * 4), 1.2, Math.ceil(w / 4));
             if (w >= 3) push(1, 1, 0.8, Math.floor(w / 3));
-            if (w >= 4) push(4, 1, 1, Math.floor(w / 4));
+            if (w >= 6) push(4, 1, 1, Math.floor((w - 1) / 5));
         }
         q.sort(() => Math.random() - 0.5);
         this.queue = q;
@@ -1283,10 +1284,10 @@ Object.assign(GameEngine.prototype, {
     spawnLogic(dt) {
         if (this.waveState === 'BREAK') { if ((this.waveTimer -= dt) <= 0) this.startWave(); return; }
         this.spawnTimer -= dt;
-        if (this.queue.length && this.spawnTimer <= 0) {
+        if (this.queue.length && this.spawnTimer <= 0 && this.enemies.length < 10 + Math.min(this.wave * 2, 14)) {
             const s = this.queue.shift(), p = this.edge(), hp = 1 + this.wave * 0.18;
             for (let i = 0; i < s.n; i++) this.enemies.push(new Enemy(s.t, p.x + (Math.random() - 0.5) * 120, p.y + (Math.random() - 0.5) * 120, hp));
-            this.spawnTimer = s.d * Math.max(0.35, 1 - this.wave * 0.04);
+            this.spawnTimer = s.d * Math.max(0.55, 1 - this.wave * 0.03);
         }
         if (!this.queue.length && !this.enemies.length) {
             this.waveState = 'BREAK'; this.waveTimer = 2; audio.music.setSection('calm');
@@ -1394,7 +1395,7 @@ function loop(timestamp) {
     fpsFrames++; fpsAcc += dt;
     if (fpsAcc >= 0.5) {
         if (Settings.showFps) document.getElementById('fpsEl').innerText = Math.round(fpsFrames / fpsAcc) + ' FPS';
-        fpsFrames = 0; fpsAcc = 0;
+        autoQuality(fpsFrames / fpsAcc); fpsFrames = 0; fpsAcc = 0;
     }
  
     requestAnimationFrame(loop);
@@ -1471,7 +1472,7 @@ const Menu = {
     back() { if (this.stack.length) this.show(this.stack.pop()); },
     close() { DOM.screens.classList.add('hidden'); },
     syncOptions() {
-        const labels = { perf: 'MODO RENDIMIENTO', shake: 'SACUDIDA DE PANTALLA', vibrate: 'VIBRACIÓN', showFps: 'MOSTRAR FPS', aimAssist: 'AYUDA DE PUNTERÍA', sway: 'BALANCEO DE CÁMARA' };
+        const labels = { perf: 'MODO RENDIMIENTO', shake: 'SACUDIDA DE PANTALLA', vibrate: 'VIBRACIÓN', showFps: 'MOSTRAR FPS', aimAssist: 'AYUDA DE PUNTERÍA', sway: 'BALANCEO DE CÁMARA', autoQ: 'CALIDAD AUTOMÁTICA' };
         document.querySelectorAll('[data-action="toggle"]').forEach(b => {
             const k = b.dataset.key;
             b.innerText = `${labels[k]}: ${Settings[k] ? 'ON' : 'OFF'}`;
@@ -1748,7 +1749,7 @@ Object.assign(GameEngine.prototype, {
         const near = (c, r, R) => { for (let y = r - R; y <= r + R; y++) for (let x = c - R; x <= c + R; x++) if (g[y] && g[y][x]) return true; return false; };
         const okCell = (c, r) => c >= M && r >= M && c < cols - M && r < rows - M && !near(c, r, 2) && zones.every(z => Math.hypot(c + .5 - z.c, r + .5 - z.r) > 3.5);
         const mode = boss ? 'quad' : ['mx', 'my', 'quad', 'rot', 'none'][Math.floor(rnd() * 5)];
-        const target = Math.floor(cols * rows * (boss ? 0.025 : 0.07 + Math.min(this.wave + 1, 10) * 0.004));
+        const target = Math.max(boss ? 4 : 8, Math.floor(cols * rows * (boss ? 0.015 : 0.032 + Math.min(this.wave + 1, 10) * 0.002)));
         let placed = 0;
         for (let n = 0; n < 200 && placed < target; n++) {
             let s = STAMPS[boss ? 4 : Math.floor(rnd() * STAMPS.length)];
@@ -1880,6 +1881,19 @@ document.getElementById('rotateDismiss').addEventListener('click', () => {
 const _init = GameEngine.prototype.init;
 GameEngine.prototype.init = function () { _init.call(this); setTimeout(() => Orient.check(), 150); };
 // ========================================================
+
+// ===================== v5 · CALIDAD ADAPTABLE =====================
+// Si los FPS caen de forma sostenida, el juego baja solo resolución, brillo y partículas (sin tocar la jugabilidad).
+function setQuality(l) { Q.level = l; Q.glow = [1, 0.6, 0.3, 0][l]; document.body.dataset.q = l; }
+let _slow = 0;
+function autoQuality(fps) {
+    if (!Settings.autoQ || Settings.perf || !engine || engine.state !== 'PLAYING' || Q.level >= 3) { _slow = 0; return; }
+    _slow = fps < 45 ? _slow + 1 : 0;
+    if (_slow >= 4) { _slow = 0; setQuality(Q.level + 1); resize(); }
+}
+const _applySettings = applySettings;
+applySettings = function () { if (!Settings.autoQ || Settings.perf) setQuality(0); _applySettings(); };
+// ==================================================================
 
 window.onload = function() {
     resize();
