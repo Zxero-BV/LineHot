@@ -417,3 +417,25 @@ body:not(.touch) .touch-only { display: none; }
     #pOptions .menu-col { display: grid; grid-template-columns: 1fr 1fr; width: min(96%, 760px); gap: 8px 12px; }
     #pOptions .menu-col .hint { order: 99; grid-column: 1 / -1; max-width: 100%; }
 }
+
+/* =====================================================================
+   v4 · Aviso para jugar en horizontal
+   ===================================================================== */
+#rotateOverlay {
+    position: fixed; inset: 0; z-index: 300; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 18px; padding: 24px; text-align: center;
+    background: rgba(5, 1, 10, .94); color: #ddd; backdrop-filter: blur(6px);
+}
+.rot-phone {
+    position: relative; width: 54px; height: 96px; border: 3px solid var(--neon-cyan); border-radius: 10px;
+    box-shadow: 0 0 18px rgba(0, 243, 255, .5); animation: rot-turn 2.4s ease-in-out infinite;
+}
+.rot-phone::after { content: ''; position: absolute; left: 50%; bottom: 6px; width: 14px; height: 3px; margin-left: -7px; background: var(--neon-cyan); border-radius: 2px; }
+@keyframes rot-turn { 0%, 20% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+.rot-title { color: var(--neon-yellow); font-weight: 900; font-size: 1.2rem; letter-spacing: 3px; text-shadow: 0 0 10px var(--neon-yellow); }
+.rot-text { font-size: .85rem; line-height: 1.6; max-width: 320px; }
+body.perf .rot-phone { animation: none; transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+    .rot-phone { animation: none; transform: rotate(-90deg); }
+    .crt-flicker { animation: none; }
+}
