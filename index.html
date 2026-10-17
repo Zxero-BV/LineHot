@@ -10,7 +10,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="format-detection" content="telephone=no">
     <title>Linehot - Ultimate Edition</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="base.css">
+    <link rel="stylesheet" href="mobile.css">
+    <link rel="stylesheet" href="fx.css">
 </head>
 <body>
 
@@ -67,8 +69,8 @@
         <section class="panel hidden" id="pOptions">
             <h2 class="panel-title">AJUSTES</h2>
             <div class="menu-col">
-                <button class="btn btn-sm toggle" data-action="toggle" data-key="perf"></button>
-                <p class="hint">Quita resplandor, CRT y parte de las partículas. Recomendado en móviles lentos.</p>
+                <button class="btn btn-sm" id="qualityBtn"></button>
+                <p class="hint">Rendimiento: más FPS, sin resplandor ni CRT. Equilibrado: buen equilibrio. Calidad: todo al máximo.</p>
                 <label class="slider-row">TAMAÑO DEL JUEGO <span id="scaleVal">100%</span>
                     <input type="range" id="scaleRange" min="0.6" max="1.5" step="0.05">
                 </label>
@@ -99,6 +101,7 @@
                 <p><span class="highlight">MÓVIL:</span> Botón circular PULSO (se ilumina cuando está listo) · Botón II arriba a la derecha pausa</p>
                 <p><span class="highlight">MÓVIL:</span> En Ajustes puedes cambiar el botón de pulso de lado, el tamaño del juego y la ayuda de puntería.</p>
                 <p><span class="highlight">PULSO:</span> onda que empuja enemigos, les hace daño leve y borra balas enemigas. Recarga en 5 s.</p>
+                <p><span class="highlight">MINIJEFES:</span> los círculos rojos marcan una línea antes de embestir (1.1 s para salir). Los cuadrados marcan dónde caerán antes de saltar.</p>
             </div>
             <div class="menu-col">
                 <button class="btn btn-sm" data-action="back">VOLVER</button>
@@ -133,7 +136,23 @@
         <button class="btn btn-sm" id="rotateDismiss">SEGUIR EN VERTICAL</button>
     </div>
 
-    <script src="music.js"></script>
-    <script src="game.js"></script>
+    <!-- Orden de carga: música -> motor de juego -> módulos del juego. NO cambiar el orden. -->
+    <script src="music_base.js"></script>
+    <script src="music_motor.js"></script>
+    <script src="music_minijefes.js"></script>
+    <script src="core.js"></script>
+    <script src="audio.js"></script>
+    <script src="input.js"></script>
+    <script src="entities.js"></script>
+    <script src="engine.js"></script>
+    <script src="upgrade.js"></script>
+    <script src="menus.js"></script>
+    <script src="boss.js"></script>
+    <script src="mobile.js"></script>
+    <script src="walls.js"></script>
+    <script src="boot.js"></script>
+    <script src="minijefes.js"></script>
+    <script src="sfx.js"></script>
+    <script src="calidad.js"></script>
 </body>
 </html>

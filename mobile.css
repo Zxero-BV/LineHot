@@ -1,0 +1,180 @@
+/* =====================================================================
+   MÓVIL Y PANTALLA COMPLETA
+   - El juego ocupa toda el área visible (dvh sigue a la barra del navegador).
+   - HUD y menús respetan muescas y bordes redondeados (safe-area).
+   - Menús que nunca se cortan: si no caben, se desplazan.
+   - Modo horizontal bajo (móviles girados): todo se compacta.
+   ===================================================================== */
+:root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --pad: clamp(10px, 2.2vmin, 20px);
+}
+
+html, body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+#gameWrapper { position: fixed; inset: 0; width: 100%; height: 100%; }
+
+#uiLayer {
+    padding: var(--pad);
+    padding-top: max(var(--pad), var(--sat));
+    padding-right: max(var(--pad), var(--sar));
+    padding-bottom: max(var(--pad), var(--sab));
+    padding-left: max(var(--pad), var(--sal));
+}
+.score-container { font-size: clamp(.95rem, 3.4vmin, 1.2rem); }
+.combo-container { font-size: clamp(1.1rem, 4vmin, 1.5rem); }
+#waveEl { font-size: clamp(.85rem, 3vmin, 1.1rem); letter-spacing: clamp(2px, .8vmin, 4px); }
+#bossBar { top: calc(max(var(--pad), var(--sat)) + 46px); }
+#fpsEl { top: calc(max(var(--pad), var(--sat)) + 52px); right: max(var(--pad), var(--sar)); }
+.pause-btn { width: 48px; height: 48px; flex: none; }
+
+/* Menús: pantalla completa real, centrado que nunca recorta el contenido */
+#screens {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100dvh;
+    justify-content: flex-start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    padding: max(10px, var(--sat)) max(10px, var(--sar)) max(10px, var(--sab)) max(10px, var(--sal));
+}
+.panel { margin: auto; max-height: none; overflow: visible; padding: clamp(10px, 3vmin, 20px); }
+
+.title { font-size: clamp(2rem, min(9vw, 13vh), 5rem); }
+.subtitle { margin-bottom: clamp(12px, 4vh, 40px); max-width: min(90%, 640px); }
+.panel-title { font-size: clamp(1.4rem, 5vh, 2rem); }
+.btn { padding: clamp(10px, 2vh, 15px) clamp(22px, 6vw, 50px); font-size: clamp(1.1rem, 3.4vh, 1.5rem); }
+.btn-sm { padding: clamp(8px, 1.6vh, 10px) 20px; font-size: clamp(.9rem, 2.6vh, 1rem); }
+.record { margin-bottom: clamp(10px, 3vh, 30px); }
+
+@media (pointer: coarse) {
+    .slider-row input { height: 36px; }
+    .btn, .btn-sm { min-height: 44px; }
+}
+
+/* Móvil en horizontal (poca altura): todo más compacto */
+@media (max-height: 520px) {
+    .panel { gap: 8px; padding: 8px; }
+    .menu-col { gap: 8px; }
+    .title { margin-bottom: 2px; }
+    .subtitle { font-size: .75rem; line-height: 1.4; margin-bottom: 8px; }
+    .controls-list { gap: 6px; }
+    .hint, .controls-list p { font-size: .72rem; line-height: 1.4; }
+    .slider-row { font-size: .8rem; gap: 4px; }
+    .hud-label { font-size: .6rem; }
+    .bar-bg { height: 10px; }
+    .weapon-text { font-size: 1rem; }
+    #weaponAmmo { font-size: 1.2rem; }
+}
+@media (max-height: 380px) {
+    .title { font-size: clamp(1.6rem, 11vh, 2.6rem); }
+    .btn { padding: 8px 20px; font-size: 1rem; }
+    .btn-sm { padding: 6px 14px; font-size: .85rem; }
+}
+
+/* =====================================================================
+   v3 · COMODIDAD EN MÓVIL
+   - body.touch (lo pone game.js en pantallas táctiles) activa el HUD compacto.
+   - HP y arma suben arriba: los pulgares tapan las esquinas de abajo.
+   - Botón de PULSO circular con anillo de recarga, cerca del pulgar.
+   ===================================================================== */
+#waveEl {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: max(var(--pad), var(--sat)); white-space: nowrap; text-align: center; pointer-events: none;
+}
+.hud-right { display: flex; align-items: flex-start; gap: 10px; }
+.pause-btn {
+    align-self: auto; touch-action: manipulation;
+    width: clamp(40px, 11vmin, 48px); height: clamp(40px, 11vmin, 48px); font-size: .85rem;
+}
+
+/* Botón de pulso (solo táctil) */
+.pulse-btn {
+    --p: 100;
+    --pulse-size: clamp(64px, 17vmin, 84px);
+    display: none; position: absolute; z-index: 60; pointer-events: auto;
+    width: var(--pulse-size); height: var(--pulse-size);
+    padding: 0; border: 0; border-radius: 50%;
+    right: max(var(--pad), var(--sar));
+    bottom: calc(max(var(--pad), var(--sab)) + clamp(96px, 24vh, 190px));
+    background: conic-gradient(var(--neon-cyan) calc(var(--p) * 1%), rgba(255, 255, 255, .14) 0);
+    color: #fff; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: .62rem; letter-spacing: 1px;
+    touch-action: none; cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 243, 255, .25);
+    transition: transform .08s;
+}
+.pulse-btn::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: rgba(5, 1, 10, .82); }
+.pulse-btn::after { content: ''; position: absolute; inset: -14px; border-radius: 50%; }   /* zona de toque más grande que el dibujo */
+.pulse-btn span { position: relative; z-index: 1; text-shadow: 0 0 6px var(--neon-cyan); }
+.pulse-btn:active { transform: scale(.92); }
+.pulse-btn.ready { animation: pulse-ready 1.4s ease-in-out infinite; }
+.pulse-btn.deny { animation: pulse-deny .18s linear; }
+@keyframes pulse-ready {
+    0%, 100% { box-shadow: 0 0 10px rgba(0, 243, 255, .5); }
+    50% { box-shadow: 0 0 24px rgba(0, 243, 255, .95); }
+}
+@keyframes pulse-deny {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+body.touch .pulse-btn { display: flex; align-items: center; justify-content: center; }
+body.pulse-left .pulse-btn { right: auto; left: max(var(--pad), var(--sal)); }
+body.perf .pulse-btn { animation: none; box-shadow: none; }
+
+/* HUD compacto en táctil */
+body.touch .score-container { font-size: 13px; letter-spacing: 1px; line-height: 1.2; }
+body.touch #highScoreEl { font-size: 10px; }
+body.touch #waveEl { font-size: 13px; letter-spacing: 3px; }
+body.touch .combo-container { font-size: 16px; line-height: 1.15; }
+body.touch .hud-bottom {
+    position: absolute; width: auto; align-items: flex-start; pointer-events: none;
+    top: calc(max(var(--pad), var(--sat)) + 50px);
+    left: max(var(--pad), var(--sal)); right: max(var(--pad), var(--sar));
+}
+body.touch .bars-container { width: 36%; max-width: 150px; }
+body.touch .bars-container .bar-bg { height: 8px; }
+body.touch .hud-label { font-size: 9px; }
+body.touch .dash-block { display: none; }
+body.touch .weapon-text { font-size: 12px; }
+body.touch #weaponAmmo { font-size: 15px; }
+body.touch #bossBar { top: calc(max(var(--pad), var(--sat)) + 78px); width: min(60%, 420px); font-size: .6rem; letter-spacing: 4px; }
+body.touch #bossBar .bar-bg { height: 12px; }
+body.touch #fpsEl { top: calc(max(var(--pad), var(--sat)) + 90px); right: auto; left: max(var(--pad), var(--sal)); }
+
+/* Ajustes solo para táctil / aviso de rotación */
+body:not(.touch) .touch-only { display: none; }
+.rotate-hint { display: none; color: var(--neon-yellow); font-size: .75rem; text-align: center; margin-bottom: 14px; }
+@media (pointer: coarse) and (orientation: portrait) { .rotate-hint { display: block; } }
+
+/* Móvil en horizontal: menús en dos columnas, sin scroll innecesario */
+@media (max-height: 520px) and (orientation: landscape) {
+    #pMain, #pOver {
+        display: grid; grid-template-columns: 1fr minmax(220px, 320px);
+        column-gap: clamp(16px, 5vw, 48px); align-items: center; justify-items: center;
+        width: min(100%, 860px);
+    }
+    #pMain .title, #pOver .title { grid-column: 1; font-size: clamp(1.8rem, 12vh, 3.2rem); }
+    #pMain .subtitle, #pOver .subtitle, #pMain .record { grid-column: 1; margin-bottom: 0; }
+    #pMain .menu-col, #pOver .menu-col { grid-column: 2; grid-row: 1 / span 4; }
+    #pOptions .menu-col { display: grid; grid-template-columns: 1fr 1fr; width: min(96%, 760px); gap: 8px 12px; }
+    #pOptions .menu-col .hint { order: 99; grid-column: 1 / -1; max-width: 100%; }
+}
+
