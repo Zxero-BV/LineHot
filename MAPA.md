@@ -1,31 +1,26 @@
-# Mapa del proyecto (Linehot)
+# Mapa del proyecto (LineHot 0.3, agrupado por temas)
 
-Cada archivo es independiente y se carga en el orden de `index.html`.
-**Para pedir un cambio, envía solo el archivo que aparece en la tabla.**
+Scripts clásicos que comparten variables globales; se cargan en el orden de `index.html`. Dentro de cada archivo hay marcadores `// ########## [original.js] ##########`.
 
 | Quiero cambiar... | Archivo |
 |---|---|
-| Ajustes de sonido de la música (temas, fundidos, director) | `music_base.js` (temas) · `music_motor.js` (director y mezcla) |
-| Tema de los minijefes (bytebeat) | `music_minijefes.js` |
 | Colores, constantes, zoom, resize, colisiones | `core.js` |
-| Efectos de sonido (disparos, golpes, explosión) | `sfx.js` |
-| Motor de audio base (sonidos antiguos y tic de música) | `audio.js` |
-| Teclado, ratón, joysticks táctiles | `input.js` |
+| Música (temas, director, minijefes) y motor de audio base | `audio.js` (music_base · music_motor · music_minijefes · audio) |
+| Efectos de sonido | `sfx.js` |
 | Jugador, enemigos, balas, pickups, partículas | `entities.js` |
-| Bucle principal, daño, oleadas, colisiones, partidas | `engine.js` |
-| Oleadas, puntuación, HUD del jefe | `upgrade.js` |
+| Bucle principal, daño, oleadas, puntuación, HUD del jefe | `engine.js` (engine · upgrade) |
+| Teclado, ratón, joysticks y HUD móvil | `controles.js` (input · mobile) |
 | Menús, pausa, ajustes, game over | `menus.js` |
-| IA y patrones del jefe | `boss.js` |
-| Controles y HUD en móvil | `mobile.js` |
 | Paredes (laberintos), cámara, horizontal | `walls.js` |
-| Arranque del juego y ajuste automático de calidad | `boot.js` |
-| Comportamiento de los minijefes (círculos y cuadrados) | `minijefes.js` |
-| Modos de calidad (Rendimiento, Equilibrado, Calidad) | `calidad.js` |
-| Estilo base, HUD, menús | `base.css` |
-| Diseño móvil y horizontal | `mobile.css` |
-| Efectos visuales (CRT, aviso de rotación) | `fx.css` |
+| Jefe y minijefes (IA y patrones) | `jefes.js` (boss · minijefes) |
+| Arranque y modos de calidad | `arranque.js` (boot · calidad) |
+| Estilos, diseño móvil, efectos CRT | `estilos.css` (base · mobile · fx) |
 
 ## Reglas
-- **No cambies el orden de los `<script>` ni de los `<link>`** en `index.html`.
-- Los archivos son "scripts clásicos": comparten variables globales. Si una función usa otra de un archivo distinto, ambos deben estar cargados y en orden.
-- Para editar: envía el archivo completo solo si el cambio es grande; para cambios pequeños, indica la función y lo que debe cambiar.
+- No cambies el orden de los `<script>` en `index.html`: varios archivos envuelven funciones de otros (p. ej. `walls` sobre `mobile`, `sfx` sobre `menus`).
+
+## Cambios de audio (arreglo de cortes de música)
+- `audio.js` → cruces entre temas: curva de graves simétrica + compensación de potencia (antes el volumen bajaba hasta un 35 % a mitad de cada cruce: fin de la oleada 2, oleada 3 y entrada de la 4).
+- `audio.js` → el descanso entre oleadas (`'calm'`) conserva la música de la oleada anterior (antes, tras minijefes/jefes, volvía a entrar el tema épico con riser e impacto en pleno descanso).
+- `audio.js` → colchón de música por adelantado 0.6 s → 1.0 s (1.8 s si el motor va justo).
+- Depuración: en la consola del navegador, `audio.music.diag()` muestra si el motor usa Worker, cuántos cortes hubo y la carga de CPU de la música.

@@ -1,9 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
  
-const bgCanvas = document.createElement('canvas');
-const bgCtx = bgCanvas.getContext('2d', { alpha: false });
- 
 const DOM = {
     score: document.getElementById('scoreEl'),
     highScore: document.getElementById('highScoreEl'),
@@ -31,15 +28,44 @@ const Settings = Object.assign(
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
 function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
-// Modo rendimiento: anula el resplandor (shadowBlur) en todo el canvas sin tocar cada llamada
+// RESPLANDOR: shadowBlur cuesta muchísimo si se repite cada fotograma. Solo se permite mientras se pinta un
+// sprite/caché (BLUR_OK); en el bucle de dibujo vale siempre 0. El modo rendimiento lo anula también ahí.
+let BLUR_OK = false;
 (() => {
     const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'shadowBlur');
     Object.defineProperty(CanvasRenderingContext2D.prototype, 'shadowBlur', {
         get() { return desc.get.call(this); },
-        set(v) { desc.set.call(this, Settings.perf ? 0 : v * renderK * Q.glow); }
+        set(v) { desc.set.call(this, (BLUR_OK && !Settings.perf) ? v * renderK * Q.glow : 0); }
     });
 })();
 const Q = { level: 0, glow: 1 };   // calidad automática: 0 = máxima ... 3 = mínima
+
+// SPRITES CON RESPLANDOR: cada figura se pinta UNA vez (con su shadowBlur) en un lienzo pequeño y después solo se
+// copia con drawImage: mismo aspecto, una fracción del coste. Se rehacen solos al cambiar resolución o calidad.
+const Spr = {
+    map: new Map(), ver: '', stamp: 0,
+    sync() {
+        const v = renderK.toFixed(3) + '|' + Settings.perf + '|' + Q.level;
+        if (v !== this.ver) { this.ver = v; this.map.clear(); this.stamp++; if (typeof warmSprites === 'function') warmSprites(); }
+    },
+    make(id, w, h, draw) {                       // w, h en unidades del mundo; el origen queda en el centro
+        const cv = document.createElement('canvas');
+        cv.width = Math.max(1, Math.ceil(w * renderK)); cv.height = Math.max(1, Math.ceil(h * renderK));
+        const c = cv.getContext('2d');
+        c.setTransform(renderK, 0, 0, renderK, cv.width / 2, cv.height / 2);
+        BLUR_OK = true; try { draw(c); } finally { BLUR_OK = false; }
+        const s = { cv, w: cv.width / renderK, h: cv.height / renderK };
+        this.map.set(id, s); return s;
+    },
+    halo(color) {                                // mancha de luz suave del color dado (balas)
+        const id = 'h' + color;
+        return this.map.get(id) || this.make(id, 48, 48, c => {
+            const g = c.createRadialGradient(0, 0, 0, 0, 0, 24);
+            g.addColorStop(0, color + 'cc'); g.addColorStop(0.35, color + '55'); g.addColorStop(1, color + '00');
+            c.fillStyle = g; c.fillRect(-24, -24, 48, 48);
+        });
+    }
+};
 let bestScore = localStorage.getItem('neonCarnageBest') || 0;
 DOM.highScore.innerText = `HI: ${bestScore.toString().padStart(6, '0')}`;
  
@@ -79,8 +105,7 @@ function resize() {
     const pw = Math.round(vw * dpr), ph = Math.round(vh * dpr);
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
-    if (bgCanvas.width !== pw) bgCanvas.width = pw;
-    if (bgCanvas.height !== ph) bgCanvas.height = ph;
+    if (typeof engine !== 'undefined' && engine) engine.needsDraw = true;   // el lienzo se borra al cambiar de tamaño
     const key = pw + 'x' + ph + '@' + zoom.toFixed(3);
     if (key === _viewKey) return;
     _viewKey = key;
@@ -94,47 +119,27 @@ matchMedia('(orientation: portrait)').addEventListener('change', () => { resize(
 if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
  
 // Utilidades Matemáticas
-function dist(x1, y1, x2, y2) { return Math.hypot(x2 - x1, y2 - y1); }
+function dist(x1, y1, x2, y2) { const dx = x2 - x1, dy = y2 - y1; return Math.sqrt(dx * dx + dy * dy); }   // Math.hypot es mucho más lento
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
 // Al alejar el mundo (móvil) los objetos pequeños se compensan un poco para seguir viéndose bien.
 const pickupBoost = () => clamp(Math.pow(1 / zoom, 0.7), 1, 1.6);
 const textBoost = () => clamp(Math.pow(1 / zoom, 0.5), 1, 1.35);
 const isTouchUI = () => document.body.classList.contains('touch');
  
+// Devuelve SIEMPRE el mismo objeto (sin crear basura en cada llamada): hay que leerlo al momento, no guardarlo.
+const _NOHIT = { hit: false }, _HIT = { hit: true, nx: 0, ny: 0, pen: 0 };
 function rectCircleCollide(cx, cy, radius, rx, ry, rw, rh) {
-    let testX = cx; let testY = cy;
-    if (cx < rx) testX = rx; else if (cx > rx + rw) testX = rx + rw;
-    if (cy < ry) testY = ry; else if (cy > ry + rh) testY = ry + rh;
-    
-    let distX = cx - testX; let distY = cy - testY;
-    let distance = Math.sqrt((distX*distX) + (distY*distY));
-    
-    if (distance <= radius) {
-        if (distance === 0) {
-            let dLeft = cx - rx; let dRight = (rx+rw) - cx;
-            let dTop = cy - ry; let dBot = (ry+rh) - cy;
-            let minD = Math.min(dLeft, dRight, dTop, dBot);
-            if(minD === dLeft) return { hit: true, nx: -1, ny: 0, pen: radius + dLeft };
-            if(minD === dRight) return { hit: true, nx: 1, ny: 0, pen: radius + dRight };
-            if(minD === dTop) return { hit: true, nx: 0, ny: -1, pen: radius + dTop };
-            return { hit: true, nx: 0, ny: 1, pen: radius + dBot };
-        }
-        return { hit: true, nx: distX / distance, ny: distY / distance, pen: radius - distance };
+    const tx = cx < rx ? rx : (cx > rx + rw ? rx + rw : cx), ty = cy < ry ? ry : (cy > ry + rh ? ry + rh : cy);
+    const dx = cx - tx, dy = cy - ty, d2 = dx * dx + dy * dy;
+    if (d2 > radius * radius) return _NOHIT;
+    if (d2 === 0) {
+        const dL = cx - rx, dR = rx + rw - cx, dT = cy - ry, dB = ry + rh - cy, m = Math.min(dL, dR, dT, dB);
+        _HIT.pen = radius + m;
+        if (m === dL) { _HIT.nx = -1; _HIT.ny = 0; } else if (m === dR) { _HIT.nx = 1; _HIT.ny = 0; }
+        else if (m === dT) { _HIT.nx = 0; _HIT.ny = -1; } else { _HIT.nx = 0; _HIT.ny = 1; }
+        return _HIT;
     }
-    return { hit: false };
+    const d = Math.sqrt(d2);
+    _HIT.nx = dx / d; _HIT.ny = dy / d; _HIT.pen = radius - d;
+    return _HIT;
 }
- 
-function lineRectCollide(x1, y1, x2, y2, rx, ry, rw, rh) {
-    let left = lineLineCollide(x1,y1,x2,y2, rx,ry,rx,ry+rh);
-    let right = lineLineCollide(x1,y1,x2,y2, rx+rw,ry,rx+rw,ry+rh);
-    let top = lineLineCollide(x1,y1,x2,y2, rx,ry,rx+rw,ry);
-    let bottom = lineLineCollide(x1,y1,x2,y2, rx,ry+rh,rx+rw,ry+rh);
-    return left || right || top || bottom;
-}
- 
-function lineLineCollide(x1, y1, x2, y2, x3, y3, x4, y4) {
-    let uA = ((x4-x3)*(y1-y3) - (y4-y3)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1));
-    let uB = ((x2-x1)*(y1-y3) - (y2-y1)*(x1-x3)) / ((y4-y3)*(x2-x1) - (x4-x3)*(y2-y1));
-    return (uA >= 0 && uA <= 1 && uB >= 0 && uB <= 1);
-}
- 

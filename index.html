@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#05010a">
+    <meta name="color-scheme" content="dark">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <title>Linehot - Ultimate Edition</title>
+    <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+
+    <div id="gameWrapper">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+    <div id="crt-overlay" class="crt-flicker"></div>
+
+    <div id="uiLayer">
+        <div class="hud-top">
+            <div>
+                <div class="score-container">SCORE<br><span id="scoreEl">000000</span></div>
+                <div id="highScoreEl">HI: 000000</div>
+            </div>
+            <div id="waveEl">WAVE 1</div>
+            <div class="hud-right">
+                <div class="combo-container" id="comboEl">x1<br>COMBO</div>
+                <button id="pauseBtn" class="pause-btn" aria-label="Pausar">II</button>
+            </div>
+        </div>
+        <div id="bossBar" class="hidden">// BOSS //<div class="bar-bg"><div class="bar-fill" id="bossFill"></div></div></div>
+        <div id="fpsEl" class="hidden">0 FPS</div>
+        <div class="hud-bottom">
+            <div class="bars-container">
+                <div class="hud-label">HP</div>
+                <div class="bar-bg"><div class="bar-fill" id="healthGhost"></div><div class="bar-fill" id="healthFill"></div></div>
+                <div class="dash-block">
+                    <div class="hud-label" style="margin-top:5px;">PULSO (Espacio)</div>
+                    <div class="bar-bg"><div class="bar-fill" id="dashFill"></div></div>
+                </div>
+            </div>
+            <div class="weapon-info">
+                <div class="weapon-text" id="weaponName">PISTOL</div>
+                <div id="weaponAmmo">∞</div>
+            </div>
+        </div>
+        <button id="pulseBtn" class="pulse-btn ready" aria-label="Pulso"><span>PULSO</span></button>
+    </div>
+
+    <div id="screens">
+
+        <section class="panel" id="pMain">
+            <h1 class="title">LINE<br>HOT</h1>
+            <p class="subtitle">Sobrevive oleadas. Derrota al jefe cada 5. Evita los <span class="highlight" style="color:var(--neon-green)">Pilares de Neón</span>.</p>
+            <p class="record">RÉCORD <span id="menuBest">000000</span></p>
+            <p class="rotate-hint">↻ Gira el teléfono: en horizontal se juega más cómodo</p>
+            <div class="menu-col">
+                <button class="btn" data-action="play">JUGAR</button>
+                <button class="btn btn-sm" data-action="options">AJUSTES</button>
+                <button class="btn btn-sm" data-action="controls">CONTROLES</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pOptions">
+            <h2 class="panel-title">AJUSTES</h2>
+            <div class="menu-col">
+                <button class="btn btn-sm" id="qualityBtn"></button>
+                <p class="hint">Rendimiento: más FPS, sin resplandor ni CRT. Equilibrado: buen equilibrio. Calidad: todo al máximo.</p>
+                <label class="slider-row">TAMAÑO DEL JUEGO <span id="scaleVal">100%</span>
+                    <input type="range" id="scaleRange" min="0.6" max="1.5" step="0.05">
+                </label>
+                <button class="btn btn-sm touch-only" id="pulseSideBtn" data-action="pulseSide"></button>
+                <button class="btn btn-sm toggle touch-only" data-action="toggle" data-key="aimAssist"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="shake"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="sway"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="autoQ"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="vibrate"></button>
+                <button class="btn btn-sm toggle" data-action="toggle" data-key="showFps"></button>
+                <label class="slider-row">VOLUMEN GENERAL <span id="volVal">60%</span>
+                    <input type="range" id="volRange" min="0" max="1" step="0.05">
+                </label>
+                <label class="slider-row">MÚSICA <span id="musicVal">60%</span>
+                    <input type="range" id="musicRange" min="0" max="1" step="0.05">
+                </label>
+                <button class="btn btn-sm btn-danger" data-action="clearBest">BORRAR RÉCORD</button>
+                <button class="btn btn-sm" data-action="back">VOLVER</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pControls">
+            <h2 class="panel-title">CONTROLES</h2>
+            <div class="controls-list">
+                <p><span class="highlight">PC:</span> WASD / Flechas mueven · Ratón apunta y dispara</p>
+                <p><span class="highlight">PC:</span> ESPACIO o SHIFT activa el pulso · ESC o P pausa</p>
+                <p><span class="highlight">MÓVIL:</span> Joystick izquierdo mueve · Derecho apunta y dispara. Los joysticks siguen a tu dedo.</p>
+                <p><span class="highlight">MÓVIL:</span> Botón circular PULSO (se ilumina cuando está listo) · Botón II arriba a la derecha pausa</p>
+                <p><span class="highlight">MÓVIL:</span> En Ajustes puedes cambiar el botón de pulso de lado, el tamaño del juego y la ayuda de puntería.</p>
+                <p><span class="highlight">PULSO:</span> onda que empuja enemigos, les hace daño leve y borra balas enemigas. Recarga en 5 s.</p>
+                <p><span class="highlight">MINIJEFES:</span> los círculos rojos marcan una línea antes de embestir (1.1 s para salir). Los cuadrados marcan dónde caerán antes de saltar.</p>
+            </div>
+            <div class="menu-col">
+                <button class="btn btn-sm" data-action="back">VOLVER</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pPause">
+            <h2 class="panel-title">PAUSA</h2>
+            <div class="menu-col">
+                <button class="btn" data-action="resume">REANUDAR</button>
+                <button class="btn btn-sm" data-action="options">AJUSTES</button>
+                <button class="btn btn-sm" data-action="controls">CONTROLES</button>
+                <button class="btn btn-sm" data-action="menu">SALIR AL MENÚ</button>
+            </div>
+        </section>
+
+        <section class="panel hidden" id="pOver">
+            <h1 class="title">SYSTEM<br>FAILURE</h1>
+            <div class="subtitle" id="overStats"></div>
+            <div class="menu-col">
+                <button class="btn" data-action="retry">REINTENTAR</button>
+                <button class="btn btn-sm" data-action="menu">MENÚ PRINCIPAL</button>
+            </div>
+        </section>
+
+    </div>
+
+    <div id="rotateOverlay" class="hidden" role="dialog" aria-live="polite">
+        <div class="rot-phone"></div>
+        <p class="rot-title">GIRA EL TELÉFONO</p>
+        <p class="rot-text">Se juega mucho mejor en horizontal: ves más campo y los pulgares no tapan la acción.</p>
+        <button class="btn btn-sm" id="rotateDismiss">SEGUIR EN VERTICAL</button>
+    </div>
+
+    <!-- Orden de carga: música -> motor de juego -> módulos del juego. NO cambiar el orden. -->
+    <script src="core.js"></script>
+    <script src="audio.js"></script>
+    <script src="entities.js"></script>
+    <script src="engine.js"></script>
+    <script src="controles.js"></script>
+    <script src="menus.js"></script>
+    <script src="walls.js"></script>
+    <script src="jefes.js"></script>
+    <script src="sfx.js"></script>
+    <script src="arranque.js"></script>
+</body>
+</html>

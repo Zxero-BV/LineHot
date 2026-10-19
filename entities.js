@@ -4,21 +4,6 @@ class Obstacle {
         this.x = x; this.y = y; this.w = w; this.h = h;
         this.color = C.green;
     }
-    draw(ctx) {
-        ctx.save();
-        ctx.strokeStyle = this.color; ctx.lineWidth = 2;
-        ctx.fillStyle = 'rgba(0, 255, 102, 0.1)';
-        ctx.shadowBlur = 15; ctx.shadowColor = this.color;
-        ctx.fillRect(this.x, this.y, this.w, this.h);
-        ctx.strokeRect(this.x, this.y, this.w, this.h);
-        
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y); ctx.lineTo(this.x+this.w, this.y+this.h);
-        ctx.moveTo(this.x+this.w, this.y); ctx.lineTo(this.x, this.y+this.h);
-        ctx.strokeStyle = 'rgba(0, 255, 102, 0.2)';
-        ctx.stroke();
-        ctx.restore();
-    }
 }
  
 class Entity {
@@ -114,43 +99,30 @@ class Player extends Entity {
         
         engine.addShake(this.weapon.recoil * 0.4);
         audio.playShoot(this.weapon.name); if (this.weapon.name === 'SHOTGUN') engine.doHitStop(0.04);
-        
-        engine.spawnParticle(
-            this.x + Math.cos(this.angle)*(this.radius+10), 
-            this.y + Math.sin(this.angle)*(this.radius+10), 
-            this.weapon.color, 4, 0, 0, 10, 'flash'
-        );
     }
  
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
- 
         if (this.iframes > 0 && Math.floor(this.iframes * 20) % 2) ctx.globalAlpha = 0.5;
-        ctx.shadowBlur = 20; ctx.shadowColor = this.color;
- 
         if (this.katanaSwingTime > 0) {
+            const k = this.katanaSwingTime / 0.2;
             ctx.beginPath();
-            ctx.arc(0, 0, this.weapon.range, -this.weapon.arc/2, this.weapon.arc/2);
-            ctx.lineWidth = (this.katanaSwingTime / 0.2) * 10;
-            ctx.strokeStyle = `rgba(255, 255, 255, ${this.katanaSwingTime / 0.2})`;
-            ctx.stroke();
+            ctx.arc(0, 0, this.weapon.range, -this.weapon.arc / 2, this.weapon.arc / 2);
+            ctx.lineWidth = k * 22; ctx.strokeStyle = `rgba(0,243,255,${k * 0.25})`; ctx.stroke();   // halo barato
+            ctx.lineWidth = k * 10; ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.stroke();
         }
- 
-        ctx.fillStyle = C.bg;
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = 3;
-        
-        ctx.beginPath();
-        ctx.moveTo(this.radius * 1.5, 0);
-        ctx.lineTo(-this.radius, this.radius);
-        ctx.lineTo(-this.radius * 0.5, 0);
-        ctx.lineTo(-this.radius, -this.radius);
-        ctx.closePath();
-        ctx.fill(); ctx.stroke();
-        
-        ctx.strokeStyle = C.white; ctx.lineWidth = 1; ctx.stroke();
+        const r = this.radius;
+        const s = Spr.map.get('pl') || Spr.make('pl', 120, 100, c => {
+            c.fillStyle = C.bg; c.strokeStyle = C.cyan; c.lineWidth = 3;
+            c.shadowBlur = 20; c.shadowColor = C.cyan;
+            c.beginPath();
+            c.moveTo(r * 1.5, 0); c.lineTo(-r, r); c.lineTo(-r * 0.5, 0); c.lineTo(-r, -r);
+            c.closePath(); c.fill(); c.stroke();
+            c.strokeStyle = C.white; c.lineWidth = 1; c.stroke();
+        });
+        ctx.drawImage(s.cv, -s.w / 2, -s.h / 2, s.w, s.h);
         ctx.restore();
     }
 }
@@ -206,43 +178,45 @@ class Enemy extends Entity {
         this.x += (Math.cos(moveAngle) * this.speed + this.knockback.x) * dt;
         this.y += (Math.sin(moveAngle) * this.speed + this.knockback.y) * dt;
  
-        engine.obstacles.forEach(obs => {
-            let res = rectCircleCollide(this.x, this.y, this.radius, obs.x, obs.y, obs.w, obs.h);
-            if (res.hit) {
-                this.x += res.nx * res.pen;
-                this.y += res.ny * res.pen;
-            }
-        });
+        const ob = engine.obstacles;
+        for (let i = 0; i < ob.length; i++) {
+            const o = ob[i], res = rectCircleCollide(this.x, this.y, this.radius, o.x, o.y, o.w, o.h);
+            if (res.hit) { this.x += res.nx * res.pen; this.y += res.ny * res.pen; }
+        }
     }
  
     draw(ctx) {
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.fillStyle = (Math.abs(this.knockback.x) > 50 || Math.abs(this.knockback.y) > 50) ? C.white : C.bg;
-        if (this.type !== 3) { ctx.shadowBlur = 18; ctx.shadowColor = this.color; }
-        if (this.type >= 4) { this.drawBig(ctx); ctx.restore(); return; }
-        ctx.strokeStyle = this.color; ctx.lineWidth = 3;
-        
-        if (this.type === 1) { 
-            ctx.fillRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
-            ctx.strokeRect(-this.radius, -this.radius, this.radius*2, this.radius*2);
-            ctx.fillStyle = C.red;
-            ctx.fillRect(-this.radius, -this.radius - 12, (this.radius*2) * (this.hp/this.maxHp), 5);
-        } else if (this.type === 2) { 
-            ctx.beginPath();
-            ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, 0);
-            ctx.lineTo(0, this.radius); ctx.lineTo(-this.radius, 0);
-            ctx.closePath();
-            ctx.fill(); ctx.stroke();
-            ctx.fillStyle = C.red;
-            ctx.fillRect(0, -3, 8, 6);
-        } else { 
-            ctx.beginPath();
-            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
-            ctx.fill(); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(-this.radius/2, 0); ctx.lineTo(this.radius/2, 0); ctx.stroke();
+        const t = this.type, r = this.radius;
+        if (t >= 4) { ctx.save(); ctx.translate(this.x, this.y); this.drawBig(ctx); ctx.restore(); return; }
+        const flash = Math.abs(this.knockback.x) > 50 || Math.abs(this.knockback.y) > 50;
+        if (t === 3) {                                   // enjambre: sin resplandor, se pinta directo
+            const x = this.x, y = this.y;
+            ctx.fillStyle = flash ? C.white : C.bg; ctx.strokeStyle = this.color; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x - r / 2, y); ctx.lineTo(x + r / 2, y); ctx.stroke();
+            return;
         }
-        ctx.restore();
+        const id = ENEMY_SPR[t][flash ? 1 : 0];
+        const s = Spr.map.get(id) || Spr.make(id, r * 2 + 64, r * 2 + 64, c => enemyBody(c, t, r, this.color, flash));
+        ctx.drawImage(s.cv, this.x - s.w / 2, this.y - s.h / 2, s.w, s.h);
+        if (t === 1) { ctx.fillStyle = C.red; ctx.fillRect(this.x - r, this.y - r - 12, r * 2 * (this.hp / this.maxHp), 5); }
+    }
+}
+ 
+const ENEMY_SPR = [['e0n', 'e0f'], ['e1n', 'e1f'], ['e2n', 'e2f']];
+// Cuerpo de los enemigos normales (se pinta una sola vez en un sprite; ver Spr en core.js)
+function enemyBody(c, t, r, color, flash) {
+    c.fillStyle = flash ? C.white : C.bg; c.strokeStyle = color; c.lineWidth = 3;
+    c.shadowBlur = 18; c.shadowColor = color;
+    if (t === 1) {
+        c.fillRect(-r, -r, r * 2, r * 2); c.strokeRect(-r, -r, r * 2, r * 2);
+    } else if (t === 2) {
+        c.beginPath(); c.moveTo(0, -r); c.lineTo(r, 0); c.lineTo(0, r); c.lineTo(-r, 0); c.closePath();
+        c.fill(); c.stroke();
+        c.fillStyle = C.red; c.fillRect(0, -3, 8, 6);
+    } else {
+        c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill(); c.stroke();
+        c.beginPath(); c.moveTo(-r / 2, 0); c.lineTo(r / 2, 0); c.stroke();
     }
 }
  
@@ -253,37 +227,24 @@ class Bullet extends Entity {
         this.vy = Math.sin(angle) * weapon.speed;
         this.damage = weapon.damage;
         this.life = weapon.name==='SHOTGUN'? 0.4 : 1.5;
-        this.history = [{x,y}];
-        this.isEnemy = isEnemy; this.pierce = weapon.pierce || 0; this.hit = new Set();
+        this.isEnemy = isEnemy; this.pierce = weapon.pierce || 0; this.hit = null;   // `hit` solo existe si la bala atraviesa
         this.px = x; this.py = y; this.ox = x; this.oy = y;
+        this.tl = isEnemy ? 0.18 : 0.06;           // duración de la estela (s)
+        this.tx = x; this.ty = y;                  // extremo de la estela
+        this.gk = this.color + this.radius;        // clave para dibujar por lotes
     }
     update(dt) {
         this.px = this.x; this.py = this.y;
         this.x += this.vx * dt;
         this.y += this.vy * dt;
         this.life -= dt;
-        this.history.push({x: this.x, y: this.y});
-        if(this.history.length > (this.isEnemy ? 12 : 4)) this.history.shift();
- 
-        for (let obs of engine.obstacles) {
-            if (lineRectCollide(this.px, this.py, this.x, this.y, obs.x, obs.y, obs.w, obs.h)) {
-                this.life = 0; 
-                engine.spawnParticle(this.x, this.y, this.color, 3, -this.vx*0.2, -this.vy*0.2, 100);
-                break;
-            }
+        const dx = this.vx * this.tl, dy = this.vy * this.tl, lx = this.x - this.ox, ly = this.y - this.oy;
+        if (lx * lx + ly * ly < dx * dx + dy * dy) { this.tx = this.ox; this.ty = this.oy; }   // al nacer, la estela parte del cañón
+        else { this.tx = this.x - dx; this.ty = this.y - dy; }
+        if (engine.wallHit(this.px, this.py, this.x, this.y)) {
+            this.life = 0;
+            engine.spawnParticle(this.x, this.y, this.color, 3, -this.vx*0.2, -this.vy*0.2, 100);
         }
-    }
-    draw(ctx) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.beginPath();
-        ctx.moveTo(this.history[0].x, this.history[0].y);
-        ctx.lineTo(this.x, this.y);
-        ctx.strokeStyle = this.color;
-        ctx.lineWidth = this.radius * 2;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        ctx.strokeStyle = C.white; ctx.lineWidth = 1; ctx.stroke();
-        ctx.globalCompositeOperation = 'source-over';
     }
 }
  
@@ -291,7 +252,7 @@ class Pickup extends Entity {
     constructor(x, y, type) {
         super(x, y, 12, type === 'HEALTH' ? C.green : WEAPONS[type].color);
         this.itemType = type; this.life = 12; this.floatY = 0;
-        this.boost = pickupBoost(); this.hit = this.radius * this.boost;
+        this.boost = pickupBoost(); this.hit = this.radius * this.boost; this.sid = 'pk' + type;
     }
     update(dt) {
         this.life -= dt;
@@ -306,27 +267,27 @@ class Pickup extends Entity {
         }
     }
     draw(ctx) {
-        if (this.life < 3 && Math.floor(this.life * 10) % 2 === 0) return; 
-        ctx.save();
-        ctx.translate(this.x, this.y + this.floatY);
-        ctx.scale(this.boost, this.boost);
+        if (this.life < 3 && Math.floor(this.life * 10) % 2 === 0) return;
+        const k = this.boost, r = this.radius, type = this.itemType, col = this.color;
+        const s = Spr.map.get(this.sid) || Spr.make(this.sid, 80, 80, c => {
+            c.shadowBlur = 15; c.shadowColor = col; c.fillStyle = col;
+            if (type === 'HEALTH') {
+                c.fillRect(-r / 2, -r, r, r * 2); c.fillRect(-r, -r / 2, r * 2, r);
+            } else if (type === 'KATANA') {
+                c.beginPath(); c.moveTo(-8, 8); c.lineTo(8, -8); c.lineWidth = 3; c.strokeStyle = col; c.stroke();
+                c.fillRect(-10, 6, 6, 6);
+            } else {
+                c.beginPath(); c.moveTo(0, -r); c.lineTo(r, r); c.lineTo(-r, r); c.closePath(); c.fill();
+            }
+        });
+        const y = this.y + this.floatY;
         ctx.globalCompositeOperation = 'lighter';
-        ctx.shadowBlur = 15; ctx.shadowColor = this.color;
-        ctx.fillStyle = this.color;
-        
-        if (this.itemType === 'HEALTH') {
-            ctx.fillRect(-this.radius/2, -this.radius, this.radius, this.radius*2);
-            ctx.fillRect(-this.radius, -this.radius/2, this.radius*2, this.radius);
-        } else if (this.itemType === 'KATANA') {
-            ctx.beginPath(); ctx.moveTo(-8, 8); ctx.lineTo(8, -8); ctx.lineWidth=3; ctx.strokeStyle=this.color; ctx.stroke();
-            ctx.fillRect(-10, 6, 6, 6);
-        } else {
-            ctx.beginPath(); ctx.moveTo(0, -this.radius); ctx.lineTo(this.radius, this.radius); ctx.lineTo(-this.radius, this.radius);
-            ctx.closePath(); ctx.fill();
-            ctx.shadowBlur = 0; ctx.fillStyle = C.white; ctx.font = '10px Orbitron'; ctx.textAlign = 'center';
-            ctx.fillText(this.itemType[0], 0, 4);
+        ctx.drawImage(s.cv, this.x - s.w * k / 2, y - s.h * k / 2, s.w * k, s.h * k);
+        if (type !== 'HEALTH' && type !== 'KATANA') {
+            ctx.fillStyle = C.white; ctx.font = (10 * k) + 'px Orbitron'; ctx.textAlign = 'center';
+            ctx.fillText(type[0], this.x, y + 4 * k);
         }
-        ctx.restore();
+        ctx.globalCompositeOperation = 'source-over';
     }
 }
  
@@ -335,8 +296,6 @@ class Particle {
         this.x = x; this.y = y; this.color = color; this.type = type;
         if (type === 'text') {
             this.text = speed; this.life = 1.0; this.vy = -40; this.vx = (Math.random() - 0.5) * 20;
-        } else if (type === 'ghost' || type === 'flash') {
-            this.life = 0.2; this.size = size;
         } else {
             const angle = Math.random() * Math.PI * 2;
             const s = Math.random() * speed;
@@ -355,22 +314,4 @@ class Particle {
             engine.stains.push({ x: this.x, y: this.y, r: this.size * 1.5, color: this.color, life: 6, max: 6 });
         }
     }
-    draw(ctx) {
-        if (this.life <= 0 && this.type !== 'text') return;
-        ctx.save();
-        if (this.type === 'text') {
-            ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color;
-            ctx.font = `900 ${this.fs || Math.round(22 * textBoost())}px Orbitron`; ctx.textAlign = 'center';
-            ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-            ctx.fillText(this.text, this.x, this.y);
-        } else if (this.type === 'ghost') {
-            ctx.globalAlpha = this.life * 2; ctx.fillStyle = this.color;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
-        } else {
-            ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = this.color;
-            ctx.beginPath(); ctx.arc(this.x, this.y, this.size * (this.life*2), 0, Math.PI*2); ctx.fill();
-        }
-        ctx.restore();
-    }
 }
- 
