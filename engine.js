@@ -10,7 +10,7 @@ class GameEngine {
     reset() {
         this.player = new Player(width/2, height/2);
         this.bullets = []; this.enemies = []; this.particles = []; this.pickups = [];
-        this.score = 0; this.combo = 0; this.comboTimer = 0; this.maxComboTimer = 3.5;
+        this.score = 0; this.combo = 0; this.maxCombo = 0; this.kills = 0; this.comboTimer = 0; this.maxComboTimer = 3.5;
         this.shakeAmount = 0; this.time = 0; this.spawnTimer = 0; this.difficulty = 1;
         this.wave = 0; this.waveState = 'BREAK'; this.waveTimer = 1.5; this.queue = [];
         this.slashes = []; this.beams = []; this.ghosts = []; this.hpGhost = 100; this.bossHp = 1;
@@ -73,7 +73,7 @@ class GameEngine {
         const multi = this.combo > 0 ? this.combo : 1;
         const total = amount * multi;
         this.score += total;
-        this.combo++; this.comboTimer = this.maxComboTimer;
+        this.combo++; this.kills++; if (this.combo > this.maxCombo) this.maxCombo = this.combo; this.comboTimer = this.maxComboTimer;
         
         if(x && y) { this.spawnText(x, y, '+' + total, C.white); if (this.combo % 5 === 0) this.spawnText(x, y - 26, 'COMBO x' + this.combo + '!', C.yellow); }
         this.addShake(Math.min(this.combo * 0.4, 6));
@@ -120,7 +120,7 @@ class GameEngine {
  
         setTimeout(() => {
             if (this.state !== 'GAMEOVER') return;
-            document.getElementById('overStats').innerHTML = `ONDA: <span class="highlight">${this.wave}</span><br>PUNTUACIÓN: <span class="highlight">${this.score}</span><br>COMBO MÁXIMO: <span class="highlight">${this.combo}</span>`;
+            Menu.fillOver(this);
             Menu.open('pOver', true);
             DOM.uiLayer.classList.remove('chromatic-glitch');
         }, 2000);
@@ -523,14 +523,14 @@ Object.assign(GameEngine.prototype, {
         this.spawnTimer -= dt;
         if (this.queue.length && this.spawnTimer <= 0 && this.enemies.length < 10 + Math.min(this.wave * 2, 14)) {
             const s = this.queue.shift(), p = this.edge(), hp = 1 + this.wave * 0.18;
-            for (let i = 0; i < s.n; i++) this.enemies.push(new Enemy(s.t, p.x + (Math.random() - 0.5) * 120, p.y + (Math.random() - 0.5) * 120, hp));
+            for (let i = 0; i < s.n; i++) this.enemies.push(makeEnemy(s.t, p.x + (Math.random() - 0.5) * 120, p.y + (Math.random() - 0.5) * 120, hp));
             this.spawnTimer = s.d * Math.max(0.55, 1 - this.wave * 0.03);
         }
         if (!this.queue.length && !this.enemies.length) {
             this.waveState = 'BREAK'; this.waveTimer = 2; audio.music.setSection('calm');
             this.banner('WAVE ' + this.wave + ' CLEARED', C.green);
             this.player.hp = Math.min(this.player.maxHp, this.player.hp + 15);
-            if (Math.random() < 0.6) { const s = this.freeSpot(), k = ['SHOTGUN', 'MINIGUN', 'KATANA', 'RAILGUN', 'HEALTH']; this.pickups.push(new Pickup(s.x, s.y, k[Math.floor(Math.random() * k.length)])); }
+            if (Math.random() < 0.6) { const s = this.freeSpot(), k = DROP_POOL; this.pickups.push(new Pickup(s.x, s.y, k[Math.floor(Math.random() * k.length)])); }
         }
     },
     bossAttack(b) {
@@ -564,7 +564,7 @@ Object.assign(GameEngine.prototype, {
         else if (isMelee || this.combo % 10 === 0) this.doHitStop(0.05);
         if (e.boss) { this.pickups.push(new Pickup(e.x, e.y, 'HEALTH')); this.player.hp = this.player.maxHp; }
         else if (Math.random() < 0.1 || (e.type === 1 && Math.random() < 0.8)) {
-            const k = ['SHOTGUN', 'MINIGUN', 'KATANA', 'RAILGUN', 'HEALTH'];
+            const k = DROP_POOL;
             this.pickups.push(new Pickup(e.x, e.y, k[Math.floor(Math.random() * k.length)]));
         }
     },

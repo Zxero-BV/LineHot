@@ -22,9 +22,9 @@ let width, height;                    // tamaño LÓGICO del mundo (unidades de 
 let viewW = 0, viewH = 0;             // tamaño de pantalla en px CSS
 let zoom = 1, dpr = 1, renderK = 1;   // zoom del mundo, densidad de píxeles, zoom*dpr
 let lastTime = 0;
-const PULSE_COOLDOWN = 5;
+let PULSE_COOLDOWN = 5;                 // las mejoras lo acortan (extras.js)
 const Settings = Object.assign(
-    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1, autoQ: true, sway: !matchMedia('(prefers-reduced-motion: reduce)').matches },
+    { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1, autoQ: true, tutorial: true, sway: !matchMedia('(prefers-reduced-motion: reduce)').matches },
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
 function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
@@ -80,8 +80,17 @@ const WEAPONS = {
     SHOTGUN: { name: "SHOTGUN", fireRate: 0.7, spread: 0.4, speed: 1000, color: C.pink, damage: 1.5, type: 'spread', count: 6, recoil: 90, pierce: 2 },
     MINIGUN: { name: "MINIGUN", fireRate: 0.06, spread: 0.2, speed: 1600, color: C.cyan, damage: 0.7, type: 'single', recoil: 4 },
     KATANA: { name: "KATANA", fireRate: 0.4, range: 90, color: C.white, damage: 8, type: 'melee', recoil: -15, arc: Math.PI },
-    RAILGUN: { name: "RAILGUN", fireRate: 1.6, color: C.cyan, damage: 12, type: 'rail', recoil: 30 }
+    RAILGUN: { name: "RAILGUN", fireRate: 1.6, color: C.cyan, damage: 12, type: 'rail', recoil: 30 },
+    LASER: { name: "LASER", fireRate: 0.06, color: '#39ff14', damage: 0.5, type: 'laser', recoil: 2, g: 'Z' },
+    ROCKET: { name: "ROCKET", fireRate: 0.85, color: '#ff7a00', damage: 5, type: 'rocket', recoil: 40, g: 'X' }
 };
+// Objetos especiales (no son armas): se aplican en extras.js
+const EXTRA_PK = {
+    SHIELD: { color: '#4da6ff', g: 'E' }, SLOW: { color: '#b388ff', g: 'T' },
+    MAGNET: { color: '#ff9f1c', g: 'M' }, NUKE: { color: '#ff3355', g: 'B' }
+};
+const DROP_POOL = ['SHOTGUN', 'MINIGUN', 'KATANA', 'RAILGUN', 'HEALTH', 'ROCKET', 'LASER'];
+const pkGlyph = (t) => (EXTRA_PK[t] && EXTRA_PK[t].g) || (WEAPONS[t] && WEAPONS[t].g) || t[0];
  
 function haptic(ms) {
     if (Settings.vibrate && navigator.vibrate) navigator.vibrate(ms);

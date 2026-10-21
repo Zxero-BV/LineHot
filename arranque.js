@@ -78,17 +78,24 @@ function reapplyQualityLevel() {
     document.body.classList.toggle('perf', Settings.perf);
 }
 
+const QUALITY_HINT = {
+    calidad: 'Todo al máximo: resplandor, CRT y partículas.',
+    equilibrado: 'Buen equilibrio entre aspecto y fluidez.',
+    rendimiento: 'Más FPS: sin resplandor ni CRT.'
+};
 function syncQualityLabel() {
-    const b = document.getElementById('qualityBtn');
-    if (b) b.innerText = 'CALIDAD GRÁFICA: ' + QUALITY[qualityMode].label;
+    document.querySelectorAll('#qualitySeg [data-q]').forEach(b => {
+        const on = b.dataset.q === qualityMode;
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+    });
+    const h = document.getElementById('qualityHint');
+    if (h) h.textContent = QUALITY_HINT[qualityMode] || '';
 }
 
-// Botón de calidad: cicla entre los tres modos
+// Selector de calidad (3 botones)
 DOM.screens.addEventListener('click', (e) => {
-    const b = e.target.closest && e.target.closest('#qualityBtn');
-    if (!b) return;
-    const i = QUALITY_ORDER.indexOf(qualityMode);
-    applyQuality(QUALITY_ORDER[(i + 1) % QUALITY_ORDER.length]);
+    const b = e.target.closest && e.target.closest('#qualitySeg [data-q]');
+    if (b) applyQuality(b.dataset.q);
 });
 
 const _syncOptions = Menu.syncOptions;

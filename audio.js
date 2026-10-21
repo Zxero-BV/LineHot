@@ -257,6 +257,28 @@ function musicCoreLib() {
                 } catch (e) {}
             }
             this.calibrate();
+            this.dryRun();
+        }
+
+        // Ensayo previo (pantalla de carga): renderiza unos bloques por los caminos que luego usa la partida
+        // (luchas, jefe, descanso, cambios de tema con cruce) para que el motor JS los tenga ya compilados.
+        // No degrada la calidad (esto no es tiempo real) y termina con un hardReset: la música empieza limpia.
+        dryRun() {
+            const F = this.dryF || 4096, dur = F / this.outSR;
+            this.degrade = () => false;
+            try {
+                const plan = [['fight', 1, 6], ['fight', 3, 8], ['boss', 5, 8], ['calm', 5, 6], ['fight', 6, 8]];
+                this.setSection('idle');
+                for (const [sec, w, n] of plan) {
+                    this.setWave(w); this.setSection(sec); this.urgent = true; this.onKill();
+                    for (let i = 0; i < n; i++) this.renderTimed(F, dur);
+                }
+            } catch (e) {}
+            delete this.degrade;                      // vuelve el degrade normal (el de la clase)
+            this.cpu = 0; this.hot = 0; this.slowChunks = 0; this.cool = 0;
+            this.n = 0; this.frac = 0.999999;
+            this.s0L = this.s0R = this.s1L = this.s1R = 0; this.oL = this.oR = 0;
+            this.hardReset();
         }
 
         // El tema epic (oleada 3 en adelante) cuesta ~4 veces más que los demás. Se mide ANTES de empezar y, si el
@@ -638,7 +660,7 @@ function musicCoreLib() {
 function musicHandler(MusicCore, post) {
     let core = null;
     return function handle(m) {
-        if (m.c === 'init') { core = new MusicCore(m.o); core.warm(); return; }
+        if (m.c === 'init') { core = new MusicCore(m.o); core.dryF = m.o.F; core.warm(); post({ c: 'ready' }); return; }
         if (!core) return;
         if (m.c === 'call') { core[m.f](...m.a); return; }
         if (m.c === 'render') {
@@ -685,7 +707,7 @@ class MusicEngine {
         this._hp = 1;
         this._pendingSR = null;
 
-        const o = { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch };
+        const o = { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch, F: MUSIC_FRAMES };
         try {
             this.worker = new Worker(URL.createObjectURL(new Blob([MUSIC_WORKER_SRC()], { type: 'text/javascript' })));
             this.worker.onmessage = (e) => this.onChunk(e.data);
@@ -700,7 +722,7 @@ class MusicEngine {
         try { this.worker.terminate(); } catch (e) {}
         this.worker = null; this.inflight = 0;
         this.local = musicHandler(musicCoreLib(), (m) => this.onChunk(m));
-        this.local({ c: 'init', o: { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: this.ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch } });
+        this.local({ c: 'init', o: { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: this.ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch, F: MUSIC_FRAMES } });
     }
     send(m) { if (this.worker) this.worker.postMessage(m); else this.local(m); }
     call(f, ...a) { this.send({ c: 'call', f, a }); }
@@ -816,7 +838,17 @@ class MusicEngine {
         this.timer = setTimeout(() => this.loop(id), 30);
     }
 
+    // Pantalla de carga: avisa cuando el núcleo de música ya está calentado (o tras 'ms' como máximo).
+    whenReady(cb, ms = 15000) {
+        if (this.ready) { cb(true); return; }
+        let done = false;
+        const fin = (ok) => { if (done) return; done = true; clearTimeout(t); cb(ok); };
+        const t = setTimeout(() => fin(false), ms);
+        (this._readyCbs = this._readyCbs || []).push(fin);
+    }
+
     onChunk(m) {
+        if (m.c === 'ready') { this.ready = true; const l = this._readyCbs || []; this._readyCbs = []; l.forEach(f => f(true)); return; }
         if (m.c !== 'chunk' || m.gen !== this.gen || !this.running) return;
         this.inflight = Math.max(0, this.inflight - 1);
         this.cpu = m.cpu; if (m.st) this.state = m.st;

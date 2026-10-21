@@ -250,7 +250,7 @@ class Bullet extends Entity {
  
 class Pickup extends Entity {
     constructor(x, y, type) {
-        super(x, y, 12, type === 'HEALTH' ? C.green : WEAPONS[type].color);
+        super(x, y, 12, type === 'HEALTH' ? C.green : (EXTRA_PK[type] || WEAPONS[type]).color);
         this.itemType = type; this.life = 12; this.floatY = 0;
         this.boost = pickupBoost(); this.hit = this.radius * this.boost; this.sid = 'pk' + type;
     }
@@ -273,6 +273,9 @@ class Pickup extends Entity {
             c.shadowBlur = 15; c.shadowColor = col; c.fillStyle = col;
             if (type === 'HEALTH') {
                 c.fillRect(-r / 2, -r, r, r * 2); c.fillRect(-r, -r / 2, r * 2, r);
+            } else if (EXTRA_PK[type]) {                       // objetos especiales: disco con anillo
+                c.globalAlpha = 0.4; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.fill();
+                c.globalAlpha = 1; c.lineWidth = 3; c.strokeStyle = col; c.beginPath(); c.arc(0, 0, r, 0, TAU); c.stroke();
             } else if (type === 'KATANA') {
                 c.beginPath(); c.moveTo(-8, 8); c.lineTo(8, -8); c.lineWidth = 3; c.strokeStyle = col; c.stroke();
                 c.fillRect(-10, 6, 6, 6);
@@ -285,7 +288,7 @@ class Pickup extends Entity {
         ctx.drawImage(s.cv, this.x - s.w * k / 2, y - s.h * k / 2, s.w * k, s.h * k);
         if (type !== 'HEALTH' && type !== 'KATANA') {
             ctx.fillStyle = C.white; ctx.font = (10 * k) + 'px Orbitron'; ctx.textAlign = 'center';
-            ctx.fillText(type[0], this.x, y + 4 * k);
+            ctx.fillText(pkGlyph(type), this.x, y + 4 * k);
         }
         ctx.globalCompositeOperation = 'source-over';
     }
