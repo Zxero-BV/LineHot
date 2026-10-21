@@ -1,0 +1,1111 @@
+
+// ########## [music_base.js] ##########
+// =====================================================================
+//  MÚSICA — Neon Carnage  (v2: director adaptativo)
+//
+//  Seis temas (bytebeat / funcbeat) que se mezclan según cómo juegas:
+//    happy  → menú y hasta que mates al primer enemigo. Alegre.
+//    shock  → tras el primer enemigo. Tensión.
+//    addict → entra poco a poco en las primeras oleadas. Techno hipnótico.
+//    epic   → a partir de la oleada ~4. Tu bytebeat nuevo, grande y cinematográfico.
+//    boss   → solo durante las oleadas de jefe. Rápido y agresivo.
+//    abyss  → oleadas 9+. El más oscuro.
+//
+//  Cómo se consigue que el cambio sea gradual y suave:
+//   1. Los cambios no ocurren "cuando sea": se programan para el siguiente
+//      compás (o pulso, si es urgente) del tema que suena, y el tema nuevo
+//      arranca desde su primer tiempo. Siempre entra "en el uno".
+//   2. Fundido de potencia constante (varios segundos, cada tema tiene el suyo).
+//   3. Estilo DJ: el tema que entra empieza apagado (filtro cerrado, sin graves)
+//      y se abre; el que sale pierde primero los graves, así no chocan.
+//   4. Los cambios de escena grandes (epic, boss, abyss) llevan un riser de
+//      ruido y un golpe grave justo en el tiempo fuerte.
+//   5. Todo lo demás reacciona sin saltos: el sonido se oscurece con el
+//      progreso, se abre con el combo, se apaga entre oleadas y late cuando
+//      queda poca vida. Al morir la música se apaga con un fundido.
+//
+//  Para cambiar un tema, edita su cuerpo en SRC_*. Para cambiar cuándo suena
+//  cada uno, mira computeDesired() más abajo (los números son oleadas).
+//  happy y epic son bytebeat (t = muestra entera); el resto, funcbeat (t = segundos).
+// =====================================================================
+
+// Cuerpos de fábrica: cada uno devuelve la función que genera el audio.
+// Se envuelven en with(Math) para poder escribir sin "Math." (igual que Bytebeat Composer).
+// (No uses nombres de variable que ya existan en Math, como E, max, min, exp…)
+
+const SRC_HAPPY = `
+var C, m, y, z, M, w, s, k, R;
+return function (t) {
+    return ((t /= 6) || (C = [[1.5873,4,4,4.7568,3.1748],[1.4983,5.3392,4.4896,3.5632,2.9964],[1.4983,5.3392,4.4896,3.7752,2.9964],[1,3.5632,4.7568,4,2.9964],[1.5873,4,4,4.7568,3.1478],[1.4983,5.3392,4.4896,3.5632,2.9964],[1,5.3392,4.4896,3.5632,2.9964],[1,5.0396,4,2.9964,2.9964]], m = 'ÿ@@ŀ@@Ĥ@@ÿ@@ê@Øê@ÿê@ØÀÀ@@@Ø@@êÿ@@ċ@ÿÿ@@@@Ĥ@@ċ@@ÿÿ@ċÿÿÿê@Ø@@êê@êÿÿÿê@@ØØ@ê@Ĥ@@ÿ@@ê@@ÿÿ@@@@@@@@õõõ')),
+        y = 2 * t,
+        z = c => (M = (m.charCodeAt(w = t / 800 % 96) - 64) * t / (2048 + c * 2),
+            (C[s = int(t / 9600 % 8)].map(e => (32 > w && 1 << w & 0xC007307 || (32 <= w && 64 > w) && 1 << w & 1929842288 || 64 < w && 1 << w & 0xE70C400) && sin((y * e / (128 + c / 4) % 2 - 1) ** 9 * PI) / 2).reduce((a, b) => a + b) + sin((M % 2 - 1) ** 9 * PI + sin(M * PI * 2) / 2)) * (k = t / 4800 % 1) ** .5 + sin(k ** .2 * 200 + c / 4) * (1 - k) ** 6 + (R = () => random() - .5)() * sin(t * 6) * max(1 - t / 800 % 3 % 2, 0) ** 5 + (t / 4800 & 1 && sin(k ** .4 * 300 + R() * k ** 2 * 400 - c / 3) * (1 - k) ** 7) + R() * (t / 2400 & 1 && 1 - k) ** 2 * 1.2),
+        [z(-1), z(1)];
+};`;
+
+const SRC_SHOCK = `
+var l = 0, r = 0, p, P;
+return function (t) {
+    return (p = 2 ** (("$$$000,,,,,,,,''".charCodeAt(4.3 * t & 15) + 22) / 12),
+        P = ((t * p % 1 > t / 2 % 1 * .6 + .2) - .5) / 2,
+        l += r += (P - l - 3 * r) / (170 * cos(t / 5) + 200),
+        l + sin(180 * (4.3 * t % 2 + .01) ** .3) / 4);
+};`;
+
+const SRC_ADDICT = `
+var slow = 0, BPM = slow ? 125 : 165;
+var A = 0, B = 0, C = 0, D = 0, b, e, KICK, HAT, CLAP, BAS, MEL, g, r;
+var note = (a = 0, b = 0) => { return (x, d) => { return (a += b += (440 * 2 ** (x / 12) - b) / 20) / d; }; };
+var _a = note(), _b = note();
+return (t, s) => {
+    b = t * BPM / 60;
+    e = 60 / BPM;
+    KICK = sin(cbrt(t % e) * 192);
+    HAT = (random() - .5 + (t * 2.0833 * 2 ** 15 & 1 ? .25 : -.25) / 1.5) / exp(t % (e / 2)) ** 64 * (b * 2 & 1);
+    CLAP = (A += B += (random() - .5 - A - B * 3) / 9) * (1 / exp(t % e) ** 36 * 3 % 1) * 8 * (b & 1);
+    g = _a([6, 6, 6, 6, 2, 2, 2, 1][b >> 1 & 7], s) * PI / 8;
+    r = _b([-6, 1, 6, -6, 1, 6, -6, 1, 6, -6, 1, 9, 8, 9, 4, -1, -10, -3, 2, -10, -3, 2, -10, -3, 2, -10, -3, 2, -11, -4, 1, 4][b * 2 & 31], s) * PI;
+    BAS = (sin(g) ** 256 - sin(g + .1) ** 256) * 4 * (C += (cbrt(b % 1) ** 4 - C) / 8);
+    MEL = sin(r + cos(r + 2 * 2 + sin(r))) * (D += ((1 / exp(b % .5) ** 4) - D) / 8);
+    return (KICK + HAT + CLAP + BAS + MEL) / 4;
+};`;
+
+
+// ---------------------------------------------------------------------
+//  TEMA 4 · EPIC  (tu bytebeat nuevo, a 44.1 kHz como floatbeat)
+//  Es exactamente tu fórmula; solo he sacado a variables locales lo que
+//  se recreaba en cada muestra (el array de 32 valores y el Array.from)
+//  para que no gaste CPU ni genere basura en el móvil. El resultado es
+//  idéntico. Q.n son las capas del acorde (16 normal, 8 en modo rendimiento).
+// ---------------------------------------------------------------------
+const SRC_EPIC = `
+var X, Y, C, H, S;
+var MK = [0, 3, 3, 3, 2, 3, 3, 5, 5, 2, 4, 3, 6, 4, 0, 0, 1, 3, 3, 3, 3, 2, 3, 3, 4, 4, 2, 3, 3, -3, -5, -12];
+var mult = (t) => { var i = t >> 13 & 31; return i === 0 ? (t >> 11) % 4 | 5 : i === 14 ? t / 64 & 4 : i === 15 ? (t / 5 & 1) + 6 : MK[i]; };
+X = (t, e) => { var u = t * PI / 256, s = sin(u); return sin(atan(sin(u + s * e) / 4) * e * mult(t)) / (1 + e / 16); };
+Y = (t, E, n) => {
+    var d = 2 - E / 1.5, a = X(t, 0) / d;
+    for (var b = 1; b < n; b++) { var x = X(t + b * E * 65, b) / d; a = cbrt(1 - a) * (1 - x * x * x); }
+    return (a - 1) * (1 + E) * 2;
+};
+return function (t) {
+    t /= 5 / 3;
+    C = (6417 >> (t >> 12 & 15) & 1) ? t / 4096 % 1 : 1;
+    H = sin(-sin(t + random()) * 4 - t * 5 + random() * 2) * sin(t * 7 + random() * 4) ** 3;
+    S = (-t >> 13 & 1 & t >> 14 & 1) ? (t / 8192 - 1 / 8192) % 1 : 1;
+    return Y(t, atan(12 * (sin(t * PI / (8192 / +'42124228146212261212466222426241'[t >> 13 & 31]) - 1.2) + 1)), Q.n) / 2 * C ** 3 * S ** .5 * (t / 16384 % 1) ** .6 + cbrt(sin(cbrt(C / 8) * 125) * (1 - C ** .7) * 8) * (1 - C ** .2) ** 1.2 * 4 + H * +'22112112121112111'[t >> 12 & 15] * (1 - (t / 8192 % 1) ** .1) ** 3 * 18 / 1.5 + cbrt(sin(cbrt(S * 12 + .5) * 130) * (1 - S ** .5) * .9 + sin((t >> 1) % 13131 * (t >> 2) % 11111) * S ** .9 * (1 - S ** .5) * 3) * (1 - S ** 3) ** 3 * (1 - S ** .2) ** 2 * 12;
+};`;
+
+// ---------------------------------------------------------------------
+//  TEMA 5 · BOSS  (funcbeat, 150 BPM, la menor frigio)
+//  Bombo con barrido, bajo gruñón en semicorcheas, caja en 2 y 4,
+//  hi-hats, acordes cortos y un riser de ruido en el último compás de cada 4.
+// ---------------------------------------------------------------------
+const SRC_BOSS = `
+var TAU = 2 * PI, B = 60 / 150, S16 = B / 4, BAR = B * 4;
+var hz = n => 55 * pow(2, n / 12);
+var RIFF = [0, 0, 12, 0,  0, 1, 0, 12,  0, 0, 12, 0,  3, 1, 0, -2];
+var ROOT = [0, 0, 1, -2];
+var kick = (u, f0, f1, dec, len) => u < 0 ? 0 : sin(TAU * (f1 * u + (f0 - f1) * (1 - exp(-u * dec)) / dec)) * exp(-u * len);
+var sw = (a, t) => 2 * ((a * t) % 1) - 1;
+return function (t) {
+    var bar = floor(t / BAR), x = t - bar * BAR, step = floor(x / S16) & 15, tb = x % B, ts = x % S16, bi = floor(x / B);
+    var duck = 1 - 0.85 * exp(-tb * 9);
+    var k = kick(tb, 170, 42, 32, 10) * 0.9;
+    var gk = (bar & 1) && step >= 14 ? kick(x - 14 * S16, 170, 44, 32, 11) * 0.6 : 0;
+    var f = hz(RIFF[step] + ROOT[bar & 3]);
+    var gate = min(1, ts * 500) * min(1, (S16 - ts) * 400) * (0.35 + 0.65 * exp(-ts * 8));
+    var bass = (tanh(3.5 * sw(f, t)) * 0.45 + sin(TAU * f * t) * 0.75) * gate * duck;
+    var sn = (bi & 1) ? (random() - 0.5) * exp(-tb * 17) * 0.9 + sin(TAU * 190 * tb) * exp(-tb * 30) * 0.5 : 0;
+    var hat = (random() - 0.5) * exp(-ts * 75) * ((step & 1) ? 0.18 : 0.3) + ((step & 3) === 2 ? (random() - 0.5) * exp(-ts * 16) * 0.22 : 0);
+    var ss = step >= 13 ? 13 : step >= 10 ? 10 : step >= 6 ? 6 : step >= 3 ? 3 : -1;
+    var stab = 0;
+    if (ss >= 0) {
+        var tx = x - ss * S16, f0 = 220 * pow(2, ROOT[bar & 3] / 12);
+        stab = tanh(1.6 * (sw(f0, t) + sw(f0 * 1.0075, t) + sw(f0 * 1.4983, t) * 0.8 + sw(f0 * 2.01, t) * 0.6)) * exp(-tx * 13) * min(1, tx * 400) * 0.22;
+    }
+    var ru = (bar & 3) === 3 ? pow(x / BAR, 3) : 0;
+    var riser = (random() - 0.5) * ru * 0.35;
+    return tanh((k + gk + bass * 0.7 + sn * 0.6 + hat + stab + riser) * 1.1) * 0.9;
+};`;
+
+// ---------------------------------------------------------------------
+//  TEMA 6 · ABYSS  (funcbeat, 128 BPM, mi frigio) — el más oscuro.
+//  Bombo pesado, bajo que rueda entre los golpes con sidechain, metales
+//  inarmónicos, palmas con cola larga y un drone disonante de fondo.
+// ---------------------------------------------------------------------
+const SRC_ABYSS = `
+var TAU = 2 * PI, B = 60 / 128, S16 = B / 4, BAR = B * 4;
+var hz = n => 41.2034 * pow(2, n / 12);
+var ROOT = [0, 0, 1, 0, 0, 0, 3, 1];
+var kick = (u, f0, f1, dec, len) => u < 0 ? 0 : sin(TAU * (f1 * u + (f0 - f1) * (1 - exp(-u * dec)) / dec)) * exp(-u * len);
+return function (t) {
+    var bar = floor(t / BAR), x = t - bar * BAR, step = floor(x / S16) & 15, tb = x % B, ts = x % S16, bi = floor(x / B);
+    var duck = 1 - 0.92 * exp(-tb * 8);
+    var k = tanh(kick(tb, 135, 36, 24, 7.5) * 2.2) * 0.9;
+    var f = hz(ROOT[bar & 7]);
+    var gate = (step & 3) ? pow(max(0, sin(PI * ts / S16)), 0.7) : 0;
+    var s1 = sin(TAU * f * t);
+    var rumble = (s1 + tanh(2.5 * s1) * 0.5 + sin(TAU * 2 * f * t) * 0.25) * gate * duck * 0.55;
+    var tc = (step === 6 || step === 14 || ((bar & 1) && step === 11)) ? ts : -1;
+    var clank = 0;
+    if (tc >= 0) clank = (sin(TAU * 387 * tc) + 0.8 * sin(TAU * 601 * tc) + 0.6 * sin(TAU * 953 * tc) + 0.4 * sin(TAU * 1493 * tc)) * exp(-tc * 24) * 0.11 + (random() - 0.5) * exp(-tc * 55) * 0.3;
+    var cl = (bi & 1) ? (random() - 0.5) * (exp(-tb * 11) * 0.55 + exp(-tb * 4) * 0.14) : 0;
+    var hat = (step & 3) === 2 ? (random() - 0.5) * exp(-ts * 45) * 0.22 : 0;
+    var lfo = 0.6 + 0.4 * sin(TAU * t / (BAR * 2));
+    var pad = (sin(TAU * 82.41 * t) + sin(TAU * 82.75 * t) + 0.7 * sin(TAU * 123.47 * t) + 0.5 * sin(TAU * 174.61 * t + sin(TAU * 0.2 * t) * 2)) * 0.07 * lfo;
+    var l = k + rumble + pad + clank + cl * 0.8 + hat * 0.5;
+    var r = k + rumble + pad + clank * 0.6 + cl * 0.8 + hat;
+    return [tanh(l * 1.1) * 0.9, tanh(r * 1.1) * 0.9];
+};`;
+
+
+
+
+// ########## [music_motor.js] ##########
+// =====================================================================
+//  MOTOR — el audio se calcula FUERA del hilo principal
+//
+//  La música es bytebeat: miles de muestras por segundo calculadas en JavaScript, y eso competía con el juego por el
+//  mismo hilo. Ahora el núcleo (MusicCore: director + síntesis) vive en un Web Worker que devuelve bloques ya hechos;
+//  el hilo principal solo los programa en el AudioContext. Si el navegador no permite Workers, el mismo núcleo se
+//  ejecuta en el hilo principal (como antes). Mismo sonido en ambos casos.
+// =====================================================================
+
+// Cada tema: fuente, tipo, ritmo (para alinear las transiciones), volumen
+// (trim, calibrado para que todos suenen parecido) y tiempos de fundido (s).
+//   type 'byte' → t es una muestra entera a `rate` Hz
+//   type 'func' → t es el tiempo en segundos
+//   major      → al entrar suena un riser + impacto (cambio de "escena")
+const MUSIC_TRACKS = {
+    happy:  { src: SRC_HAPPY,  type: 'byte', rate: 8000,  beat: 0.6,        bar: 2.4,         trim: 0.90, fadeIn: 2.5, fadeOut: 3.5 },
+    shock:  { src: SRC_SHOCK,  type: 'func',              beat: 0.93,       bar: 1.86,        trim: 0.70, fadeIn: 2.5, fadeOut: 5.0 },
+    addict: { src: SRC_ADDICT, type: 'func',              beat: 60 / 165,   bar: 240 / 165,   trim: 1.10, fadeIn: 6.0, fadeOut: 7.0 },
+    epic:   { src: SRC_EPIC,   type: 'byte', rate: 44100, beat: 0.6192,     bar: 2.4768,      trim: 0.50, clip: 1, heavy: true, fadeIn: 6.0, fadeOut: 7.0, major: true },
+    boss:   { src: SRC_BOSS,   type: 'func',              beat: 0.4,        bar: 1.6,         trim: 1.05, fadeIn: 2.5, fadeOut: 5.0, major: true },
+    abyss:  { src: SRC_ABYSS,  type: 'func',              beat: 60 / 128,   bar: 240 / 128,   trim: 0.58, fadeIn: 8.0, fadeOut: 8.0, major: true }
+};
+const MUSIC_ORDER = ['happy', 'shock', 'addict', 'epic', 'boss', 'abyss'];
+
+// Frecuencia interna del motor. Cuanto más alta, más fiel (sobre todo al tema de minijefes a 48 kHz),
+// pero más CPU: el coste crece en proporción. Por defecto 24 kHz en PC; 16 kHz en móvil o con
+// modo rendimiento activado (se lee al cargar la página).
+let MUSIC_SR = (() => {
+    let perf = false;
+    try { perf = !!JSON.parse(localStorage.getItem('neonCarnageSettings') || '{}').perf; } catch (e) {}
+    const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+    return (touch || perf) ? 16000 : 24000;
+})();
+const MUSIC_FRAMES = 4096;    // fotogramas de salida por bloque (~90 ms)
+const MUSIC_LOOKAHEAD = 1.0;  // segundos que se preparan por adelantado (colchón si el juego se atasca)
+
+
+// ---------------------------------------------------------------------
+//  NÚCLEO: director + síntesis, sin WebAudio. Se serializa con toString() para el Worker,
+//  por eso debe ser autocontenido (nada de variables globales de la página).
+// ---------------------------------------------------------------------
+function musicCoreLib() {
+    const MUSIC_BAND_HZ = 180;    // corte del "intercambio de graves" entre temas
+    const MUSIC_TWO_PI = Math.PI * 2;
+    let MUSIC_SR = 24000;
+    const musClamp01 = (x) => x < 0 ? 0 : x > 1 ? 1 : x;
+    const musStep = (a, b, x) => { x = musClamp01((x - a) / (b - a)); return x * x * (3 - 2 * x); };
+
+    // Crea la función de un tema, con with(Math) y su estado propio.
+    // Q = ajustes de calidad compartidos (Q.n: capas del tema epic).
+    // Antes: with (Math) { ... }, que obliga al motor JS a buscar cada sin/floor/abs dinámicamente (muy lento).
+    // Ahora las funciones de Math son constantes léxicas (mismo resultado; el cuerpo va en una función interna,
+    // así sus propias variables siguen pudiendo llamarse igual que una función de Math).
+    const MATH_NAMES = Object.getOwnPropertyNames(Math).filter(k => /^[A-Za-z_$][\w$]*$/.test(k)).join(',');
+    function makeGen(body, Q) {
+        return new Function('int', 'Q', 'const {' + MATH_NAMES + '} = Math; return (function () {' + body + '\n})();')(Math.trunc, Q);
+    }
+
+    class MusicCore {
+        constructor(o) {                         // o = { tracks, order, outSR, musicSR, touch }
+            MUSIC_SR = o.musicSR;
+            this.order = o.order; this.outSR = o.outSR; this.touch = o.touch;
+            this.Q = this.touch ? { n: 8, hold: true } : { n: 16, hold: false };
+            this.gens = {};
+            for (const k of this.order) {
+                this.gens[k] = Object.assign({
+                    id: k, fn: null, on: false, start: null, w: 0, ws: 0, target: 0, key: -1, cache: null,
+                    sL: 0, sR: 0, lL: 0, lR: 0, sa: 1, gl: 0, gh: 0, broken: false, xL: 0, xR: 0, dL: 0, dR: 0
+                }, o.tracks[k]);
+            }
+            this.list = this.order.map(k => this.gens[k]);
+            this.active = [];
+            this.fading = false;
+            this.cpu = 0;
+            this.slowChunks = 0; this.hot = 0; this.cool = 0;
+            this.cap = { hold: false, n: 99, sr: 1e9 };   // lo más alto que aguanta este dispositivo (lo fijan la calibración y la escalera de abajo)
+            this.bandA = 1 - Math.exp(-MUSIC_TWO_PI * MUSIC_BAND_HZ / MUSIC_SR);
+            this.n = 0;                                   // muestra global (a MUSIC_SR) ya generada
+            this.frac = 0.999999;
+            this.s0L = this.s0R = this.s1L = this.s1R = 0;
+            this.oL = this.oR = 0;
+            this.hardReset();
+        }
+
+        // Ejecuta cada tema unos miles de muestras al arrancar: así el motor JS ya lo tiene optimizado y no hay un
+        // bloque lento justo cuando entra en pleno juego.
+        warm() {
+            for (const g of this.list) {
+                try {
+                    const fn = makeGen(g.src, { n: 8, hold: true });
+                    for (let i = 0; i < 12000; i++) { if (g.type === 'byte') fn(i); else fn(i / 24000, 24000); }
+                } catch (e) {}
+            }
+            this.calibrate();
+            this.dryRun();
+        }
+
+        // Ensayo previo (pantalla de carga): renderiza unos bloques por los caminos que luego usa la partida
+        // (luchas, jefe, descanso, cambios de tema con cruce) para que el motor JS los tenga ya compilados.
+        // No degrada la calidad (esto no es tiempo real) y termina con un hardReset: la música empieza limpia.
+        dryRun() {
+            const F = this.dryF || 4096, dur = F / this.outSR;
+            this.degrade = () => false;
+            try {
+                const plan = [['fight', 1, 6], ['fight', 3, 8], ['boss', 5, 8], ['calm', 5, 6], ['fight', 6, 8]];
+                this.setSection('idle');
+                for (const [sec, w, n] of plan) {
+                    this.setWave(w); this.setSection(sec); this.urgent = true; this.onKill();
+                    for (let i = 0; i < n; i++) this.renderTimed(F, dur);
+                }
+            } catch (e) {}
+            delete this.degrade;                      // vuelve el degrade normal (el de la clase)
+            this.cpu = 0; this.hot = 0; this.slowChunks = 0; this.cool = 0;
+            this.n = 0; this.frac = 0.999999;
+            this.s0L = this.s0R = this.s1L = this.s1R = 0; this.oL = this.oR = 0;
+            this.hardReset();
+        }
+
+        // El tema epic (oleada 3 en adelante) cuesta ~4 veces más que los demás. Se mide ANTES de empezar y, si el
+        // dispositivo no lo aguanta con holgura, se aligera de entrada (en vez de esperar a que la música se entrecorte).
+        calibrate() {
+            const g = this.gens.epic;
+            if (!g || g.type !== 'byte') return;
+            try {
+                for (let step = 0; step < 6; step++) {
+                    const fn = makeGen(g.src, this.Q);
+                    for (let i = 0; i < 2000; i++) fn(i);
+                    let best = 1e9;
+                    for (let r = 0; r < 3; r++) {
+                        const t0 = performance.now();
+                        for (let i = 0; i < 2000; i++) fn(2000 + r * 2000 + i);
+                        best = Math.min(best, performance.now() - t0);
+                    }
+                    // CPU por segundo de audio: una evaluación por muestra interna (+ margen para el resto del motor)
+                    this.calCost = best / 2000 / 1000 * MUSIC_SR * (this.Q.hold ? 0.5 : 1) + 0.06;
+                    if (this.calCost <= 0.40 || !this.degrade()) break;
+                }
+            } catch (e) {}
+        }
+
+        // Un paso hacia una música más ligera. Devuelve false si ya no queda nada que quitar.
+        degrade() {
+            if (!this.Q.hold) { this.Q.hold = true; this.cap.hold = true; return true; }
+            if (this.Q.n > 10) { this.Q.n = 10; this.cap.n = 10; return true; }
+            if (this.Q.n > 6) { this.Q.n = 6; this.cap.n = 6; return true; }
+            if (MUSIC_SR > 12000) {
+                const sr = Math.max(12000, Math.round(MUSIC_SR * 0.75));
+                this.retune(sr); this.cap.sr = sr; return true;
+            }
+            return false;
+        }
+
+        // ================= control (llega por mensajes desde el juego) =================
+        setFading(b) { this.fading = !!b; }
+        // Nueva partida con la música sonando: vuelve al tema alegre con una transición normal (sin cortes).
+        softNewRun() {
+            this.kills = 0; this.waveKills = 0; this.wave = 0; this.combo = 0;
+            this.section = 'idle'; this.last = 'idle';
+            this.urgent = true;
+        }
+        onKill() {
+            this.kills++; this.waveKills++;
+            if (this.kills === 1) this.urgent = true;     // primer enemigo: cambio de tema sin esperar al compás
+        }
+        // Sección "efectiva": el descanso entre oleadas ('calm') conserva la música de la oleada anterior.
+        // Antes, al descansar tras un minijefe o un jefe, el director volvía a la mezcla normal: entraba el tema épico con su
+        // riser e impacto a mitad del descanso y, 2 s después, se cambiaba otra vez al empezar la oleada siguiente.
+        eff() { return this.section === 'calm' ? (this.last || 'fight') : this.section; }
+        setSection(name) {
+            if (name === this.section) return;
+            const prev = this.eff();
+            if (name !== 'calm') this.last = name;
+            const next = name === 'calm' ? prev : name;
+            if (next !== prev && (next === 'boss' || prev === 'boss')) this.urgent = true;
+            this.section = name;
+        }
+        setWave(w) { this.wave = w; this.waveKills = 0; this.waveSize = 0; }
+        setWaveSize(n) { this.waveSize = n; }          // enemigos que tiene la oleada (para medir su avance)
+        setCombo(c) { this.combo = c; }
+        setHealth(f) { this.hp = musClamp01(f); }
+        setQuality(lite) {
+            const low = lite || this.touch;
+            this.Q.n = Math.min(low ? 8 : 16, this.cap.n);        // sin deshacer lo que el dispositivo ya no aguantaba
+            this.Q.hold = low || this.cap.hold;
+        }
+        // Cambia la frecuencia interna (reinicia el generador; el juego lo llama con la música parada)
+        setSR(sr) {
+            sr = Math.min(sr, this.cap.sr);
+            MUSIC_SR = sr;
+            this.bandA = 1 - Math.exp(-MUSIC_TWO_PI * MUSIC_BAND_HZ / MUSIC_SR);
+            this.n = 0; this.frac = 0.999999;
+            this.s0L = this.s0R = this.s1L = this.s1R = 0;
+            this.hardReset();
+        }
+        // Baja la frecuencia interna SIN cortar la música: se reescalan los contadores para que el tiempo siga igual.
+        // Es el último recurso en dispositivos lentos (el coste es proporcional a la frecuencia).
+        retune(sr) {
+            const k = sr / MUSIC_SR;
+            MUSIC_SR = sr;
+            this.bandA = 1 - Math.exp(-MUSIC_TWO_PI * MUSIC_BAND_HZ / MUSIC_SR);
+            this.n = Math.round(this.n * k);
+            for (const g of this.list) if (g.start !== null) g.start = Math.round(g.start * k);
+            if (this.pending) this.pending.at = Math.round(this.pending.at * k);
+            if (this.fx) { this.fx.from = Math.round(this.fx.from * k); this.fx.hit = Math.round(this.fx.hit * k); }
+        }
+        // Para depurar desde la consola:  audio.music.getState()
+        getState() {
+            const t = {};
+            for (const g of this.list) if (g.on) t[g.id] = { w: +g.w.toFixed(2), target: +g.target.toFixed(2) };
+            return { kills: this.kills, wave: this.wave, prog: +this.prog().toFixed(2), section: this.section, pending: !!this.pending, cpu: +this.cpu.toFixed(2), tracks: t };
+        }
+
+    // ================= director =================
+    hardReset() {
+        this.kills = 0; this.waveKills = 0; this.wave = 0; this.combo = 0;
+        this.section = 'idle'; this.last = 'idle';
+        this.hp = 1;
+        this.energy = 0; this.calm = 0; this.bossF = 0; this.lowhp = 0; this.dark = 0;
+        this.tone = 0; this.toneT = 0; this.drive = 1; this.driveT = 1; this.ga = 1; this.nrm = 1;
+        this.f1L = this.f1R = this.f2L = this.f2R = 0;
+        this.pending = null; this.fx = null; this.urgent = false;
+        this.nzPrev = 0; this.fxPh = 0;
+        for (const g of this.list) {
+            g.on = false; g.start = null; g.w = g.ws = g.target = 0;
+            g.key = -1; g.cache = null; g.sL = g.sR = g.lL = g.lR = g.xL = g.xR = g.dL = g.dR = 0; g.broken = false;
+        }
+        const h = this.gens.happy;
+        h.on = true; h.start = this.n; h.w = h.ws = h.target = 1;
+        h.fn = makeGen(h.src, this.Q);
+        this.refreshActive();
+    }
+
+    refreshActive() { this.active = this.list.filter(g => g.on); }
+
+    // Progreso global: oleada actual + avance dentro de ella (0, 1, 2…). Sin oleadas, por kills.
+    prog() {
+        if (this.wave > 0) return (this.wave - 1) + Math.min(0.95, this.waveKills / (this.waveSize || (22 + 8 * this.wave)));
+        return this.kills / 30;
+    }
+
+    // Qué debe sonar ahora (presencia de cada tema entre 0 y 1).
+    computeDesired() {
+        const d = {};
+        for (const k of this.order) d[k] = 0;
+        if (this.eff() === 'mini' && this.gens.mini) { d.mini = 1; return d; }   // minijefes: suena solo ese tema
+        if (this.eff() === 'boss') { d.boss = 1; return d; }
+        if (this.kills === 0) { d.happy = 1; return d; }           // alegre hasta el primer enemigo
+        // p = oleada actual - 1 + avance dentro de ella. Cada oleada empuja la música un paso:
+        //   O1 tensión · O2 techno hipnótico · O3 techno -> épico · O6-O8 épico · O9 épico -> abismo · O11+ abismo
+        //   (las oleadas de minijefes y de jefe tienen su propio tema y no pasan por aquí)
+        const p = this.prog();
+        d.shock  = 1 - musStep(0.9, 1.7, p);
+        d.addict = musStep(0.9, 1.9, p) * (1 - musStep(2.3, 3.2, p));
+        d.epic   = musStep(2.3, 3.2, p) * (1 - musStep(8.2, 9.2, p));
+        d.abyss  = musStep(8.2, 9.2, p);
+        return d;
+    }
+
+    refTrack() {
+        let best = null;
+        for (const g of this.active) {
+            if (g.start !== null && this.n >= g.start && g.w > 0.05 && (!best || g.ws > best.ws)) best = g;
+        }
+        return best;
+    }
+
+    // Si lo que debe sonar cambió, programa el cambio para el próximo compás (o pulso, si es urgente)
+    // del tema dominante. Así el tema nuevo entra siempre en un tiempo fuerte.
+    checkSchedule() {
+        if (this.pending) return;
+        const des = this.computeDesired();
+        let diff = false, major = false;
+        for (const g of this.list) {
+            const want = des[g.id];
+            if (Math.abs(want - g.target) > 0.03) diff = true;
+            if (want > 0.001 && !g.on && g.major) major = true;
+        }
+        if (!diff) return;
+        const ref = this.refTrack();
+        let at = this.n + 1;
+        if (ref) {
+            const unit = (this.urgent ? ref.beat : ref.bar) * MUSIC_SR;
+            const lead = major ? 0.9 * MUSIC_SR : 0;          // los cambios de escena avisan con un riser
+            const k = Math.ceil((this.n + lead - ref.start) / unit);
+            at = ref.start + Math.round(k * unit);
+            if (at <= this.n) at = this.n + 1;
+        }
+        this.urgent = false;
+        this.pending = { at };
+        if (major) this.fx = { from: this.n, hit: at };
+    }
+
+    commit(n) {
+        const des = this.computeDesired();
+        let major = false;
+        for (const g of this.list) {
+            const want = des[g.id];
+            if (want > 0.001 && !g.on) {                      // entra un tema: arranca desde el principio, en el tiempo fuerte
+                g.on = true; g.start = n; g.key = -1; g.cache = null; g.w = 0; g.ws = 0;
+                g.sL = g.sR = g.lL = g.lR = g.xL = g.xR = g.dL = g.dR = 0; g.broken = false;
+                g.fn = makeGen(g.src, this.Q);
+                if (g.major) major = true;
+            }
+            g.target = want < 0.001 ? 0 : want;
+        }
+        if (major && !this.fx) this.fx = { from: n, hit: n };
+        this.pending = null;
+        this.refreshActive();
+    }
+
+    // Se llama una vez por bloque: suaviza los macros y mueve los pesos hacia sus objetivos.
+    macros(dt) {
+        const k = (tau) => 1 - Math.exp(-dt / tau);
+        const energyT = musClamp01(this.combo / 18);
+        this.energy += (energyT - this.energy) * k(energyT > this.energy ? 0.5 : 4);
+        this.calm += ((this.section === 'calm' ? 1 : 0) - this.calm) * k(1);
+        this.bossF += ((this.eff() === 'boss' ? 1 : 0) - this.bossF) * k(1.5);
+        this.lowhp += (musClamp01((0.38 - this.hp) / 0.26) - this.lowhp) * k(0.6);
+        this.dark += (musClamp01(this.prog() / 12) - this.dark) * k(3);
+
+        // El sonido se oscurece con el progreso y en peligro; se abre con el combo.
+        this.toneT = musClamp01(this.dark * 0.55 + this.calm * 0.22 + this.lowhp * 0.55 + this.bossF * 0.08 - this.energy * 0.3 + (this.fading ? 0.9 : 0));
+        this.driveT = 1 + 1.4 * this.dark + 0.4 * this.bossF + 0.35 * this.energy;
+
+        this.checkSchedule();
+
+        for (const g of this.list) {
+            if (!g.on) continue;
+            if (g.w < g.target) g.w = Math.min(g.target, g.w + dt / g.fadeIn);
+            else g.w = Math.max(g.target, g.w - dt / ((this.eff() === 'boss' || this.eff() === 'mini')
+                ? Math.min(g.fadeOut, 1.4)   // al entrar a un jefe/minijefe los temas viejos se apagan rápido (evita 3-4 temas a la vez)
+                : g.fadeOut));
+        }
+        let gone = false;
+        for (const g of this.list) {
+            if (g.on && g.target === 0 && g.w <= 0.002 && g.ws < 0.004) { g.on = false; g.start = null; g.w = g.ws = 0; gone = true; }
+        }
+        if (gone) this.refreshActive();
+    }
+
+    // ================= síntesis =================
+    // Coeficientes que se refrescan cada 64 muestras (más barato que cada muestra).
+    coefs() {
+        this.tone += (this.toneT - this.tone) * 0.02;
+        this.drive += (this.driveT - this.drive) * 0.02;
+        const cut = 7000 * Math.pow(0.12, this.tone);
+        this.ga = 1 - Math.exp(-MUSIC_TWO_PI * cut / MUSIC_SR);
+        let pw = 0;
+        for (const g of this.active) {
+            g.ws += (g.w - g.ws) * 0.12;
+            g.gh = Math.sin(g.ws * Math.PI / 2);                              // agudos: potencia constante
+            // graves: el que entra los gana y el que sale los pierde en torno a la mitad del cruce. La curva es SIMÉTRICA
+            // (suma de potencias constante). Antes iba de 0.3 a 0.9 (centro en 0.6): a mitad del cruce los dos temas
+            // tenían los graves casi apagados y el bombo/bajo "desaparecía" unos segundos (-35 % de volumen).
+            g.gl = Math.sin(musStep(0.2, 0.8, g.ws) * Math.PI / 2);
+            pw += g.gh * g.gh;
+            g.sa = 1 - Math.exp(-MUSIC_TWO_PI * (350 * Math.pow(46, g.ws)) / MUSIC_SR);  // el tema "se abre" al entrar
+        }
+        // Potencia total constante durante los cruces: como cada tema entra y sale a distinto ritmo (fadeIn != fadeOut),
+        // la suma de los dos no siempre es 1. Se compensa suavemente para que la música no "se hunda" a mitad del cruce.
+        const nT = this.fading ? 1 : Math.min(1.5, Math.max(0.75, 1 / Math.sqrt(Math.max(pw, 0.25))));
+        this.nrm += (nT - this.nrm) * 0.01;
+        // Modo "raw": mientras suena solo el tema de minijefes se desactivan el filtro que oscurece,
+        // la saturación y la separación de graves, para escuchar la fórmula tal cual.
+        const mini = this.gens.mini;
+        if (this.eff() === 'mini' && mini && mini.on && this.active.length === 1) {
+            this.ga = 1; this.drive = 1; mini.sa = 1; mini.gl = mini.gh;
+        }
+    }
+
+    // Genera UNA muestra a MUSIC_SR en this.oL / this.oR
+    sample() {
+        const n = this.n++;
+        if (this.pending && n >= this.pending.at) this.commit(n);
+        if ((n & 63) === 0) this.coefs();
+
+        let sl = 0, sr = 0;
+        const act = this.active;
+        for (let i = 0; i < act.length; i++) {
+            const g = act[i];
+            if (g.start === null || n < g.start) continue;
+            const loc = n - g.start;
+            let v, vl, vr;
+            try {
+                if (g.type === 'byte') {
+                    const tt = Math.floor(loc * g.rate / MUSIC_SR);
+                    if (tt !== g.key && !(g.heavy && this.Q.hold && (loc & 1))) { g.key = tt; g.cache = g.fn(tt); }
+                    v = g.cache;
+                } else {
+                    v = g.fn(loc / MUSIC_SR, MUSIC_SR);
+                }
+            } catch (e) { g.broken = true; g.fn = () => 0; v = 0; }
+            if (typeof v === 'number') { vl = vr = v; }
+            else if (v) { vl = v[0]; vr = v.length > 1 ? v[1] : v[0]; }
+            else { vl = vr = 0; }
+            if (g.clip) {                                 // como en Bytebeat Composer: recorta a ±clip
+                vl = vl > g.clip ? g.clip : vl < -g.clip ? -g.clip : vl;
+                vr = vr > g.clip ? g.clip : vr < -g.clip ? -g.clip : vr;
+            }
+            if (!(vl > -6 && vl < 6)) vl = 0;             // descarta NaN / infinitos / valores locos
+            if (!(vr > -6 && vr < 6)) vr = 0;
+            // bloqueador de continua (quita el desfase que algunas fórmulas arrastran)
+            const yl = vl - g.xL + 0.998 * g.dL, yr = vr - g.xR + 0.998 * g.dR;
+            g.xL = vl; g.xR = vr; g.dL = yl; g.dR = yr; vl = yl; vr = yr;
+
+            g.sL += g.sa * (vl - g.sL); g.sR += g.sa * (vr - g.sR);                // filtro que se abre
+            g.lL += this.bandA * (g.sL - g.lL); g.lR += this.bandA * (g.sR - g.lR); // separa graves
+            sl += (g.lL * g.gl + (g.sL - g.lL) * g.gh) * g.trim;
+            sr += (g.lR * g.gl + (g.sR - g.lR) * g.gh) * g.trim;
+        }
+
+        sl *= this.nrm; sr *= this.nrm;
+
+        // Riser antes de un cambio de escena + impacto en el tiempo fuerte
+        const fx = this.fx;
+        if (fx) {
+            let v = 0;
+            if (n < fx.hit) {
+                const u = (n - fx.from) / Math.max(1, fx.hit - fx.from);
+                const nz = Math.random() * 2 - 1;
+                this.fxPh += MUSIC_TWO_PI * 180 * Math.pow(8, u) / MUSIC_SR;
+                v = ((nz - this.nzPrev) * 0.5 + Math.sin(this.fxPh) * 0.35) * u * u * u * u * 0.22;
+                this.nzPrev = nz;
+            } else {
+                const tau = (n - fx.hit) / MUSIC_SR;
+                if (tau > 1.8) this.fx = null;
+                else v = Math.sin(MUSIC_TWO_PI * (46 * tau + 40 * (1 - Math.exp(-tau * 11)) / 11)) * Math.exp(-tau * 3) * 0.6
+                       + (Math.random() * 2 - 1) * Math.exp(-tau * 10) * 0.18;
+            }
+            sl += v; sr += v;
+        }
+
+        // Filtro global de 2 polos (oscurece) + saturación suave
+        const a = this.ga;
+        this.f1L += a * (sl - this.f1L); this.f2L += a * (this.f1L - this.f2L);
+        this.f1R += a * (sr - this.f1R); this.f2R += a * (this.f1R - this.f2R);
+        const dr = this.drive, comp = 0.9 / (1 + 0.15 * (dr - 1));
+        let ol = Math.tanh(this.f2L * dr) * comp, or = Math.tanh(this.f2R * dr) * comp;
+
+        // Latido cuando queda poca vida (no pasa por el filtro, siempre se oye)
+        if (this.lowhp > 0.02) {
+            const period = 0.95 - 0.35 * this.lowhp;
+            const u = (n / MUSIC_SR) % period, u2 = u - 0.2;
+            let hb = Math.sin(MUSIC_TWO_PI * 58 * u) * Math.exp(-u * 20) + 0.5 * Math.sin(MUSIC_TWO_PI * 95 * u) * Math.exp(-u * 26);
+            if (u2 > 0) hb += 0.7 * (Math.sin(MUSIC_TWO_PI * 58 * u2) * Math.exp(-u2 * 20) + 0.5 * Math.sin(MUSIC_TWO_PI * 95 * u2) * Math.exp(-u2 * 26));
+            hb *= 0.4 * this.lowhp;
+            ol += hb; or += hb;
+        }
+        this.oL = ol > 1 ? 1 : ol < -1 ? -1 : ol;
+        this.oR = or > 1 ? 1 : or < -1 ? -1 : or;
+    }
+
+    // Un bloque de audio a la frecuencia real del dispositivo (interpolando desde MUSIC_SR).
+    // Al usar la misma frecuencia que el contexto y tiempos exactos, los bloques empalman sin clics.
+    renderChunk(F, dur) {
+        this.macros(dur);
+        const L = new Float32Array(F), R = new Float32Array(F);
+        const step = MUSIC_SR / this.outSR;
+        let s0L = this.s0L, s0R = this.s0R, s1L = this.s1L, s1R = this.s1R, frac = this.frac;
+        for (let i = 0; i < F; i++) {
+            frac += step;
+            while (frac >= 1) {
+                frac -= 1;
+                s0L = s1L; s0R = s1R;
+                this.sample();
+                s1L = this.oL; s1R = this.oR;
+            }
+            L[i] = s0L + (s1L - s0L) * frac;
+            R[i] = s0R + (s1R - s0R) * frac;
+        }
+        this.s0L = s0L; this.s0R = s0R; this.s1L = s1L; this.s1R = s1R; this.frac = frac;
+        return { L, R };
+    }
+
+    // renderChunk + medición de CPU. Si el dispositivo va justo, aligera el tema epic (el más pesado).
+    renderTimed(F, dur) {
+        const t0 = performance.now();
+        const r = this.renderChunk(F, dur);
+        const inst = (performance.now() - t0) / 1000 / dur;          // fracción del tiempo real que costó este bloque
+        this.cpu += (inst - this.cpu) * 0.1;
+        this.hot = inst > 0.9 ? this.hot + 1 : 0;                     // 3 bloques seguidos al límite: ya se está cortando
+        this.slowChunks = this.cpu > 0.5 ? this.slowChunks + 1 : 0;   // o ~1 s por encima de la mitad
+        if (this.cool > 0) this.cool--;
+        else if (this.hot >= 3 || this.slowChunks >= 12) {
+            this.hot = 0; this.slowChunks = 0;
+            if (this.degrade()) { this.cool = 10; this.cpu *= 0.7; }
+        }
+        return r;
+    }
+    }
+    return MusicCore;
+}
+
+// Recibe mensajes ({c:'init'|'render'|'call'}) y responde con bloques de audio. Igual en Worker y en hilo principal.
+function musicHandler(MusicCore, post) {
+    let core = null;
+    return function handle(m) {
+        if (m.c === 'init') { core = new MusicCore(m.o); core.dryF = m.o.F; core.warm(); post({ c: 'ready' }); return; }
+        if (!core) return;
+        if (m.c === 'call') { core[m.f](...m.a); return; }
+        if (m.c === 'render') {
+            const F = m.F, dur = F / core.outSR;
+            for (let i = 0; i < m.k; i++) {
+                const r = core.renderTimed(F, dur);
+                post({ c: 'chunk', gen: m.gen, L: r.L, R: r.R, cpu: core.cpu, st: (i === m.k - 1) ? core.getState() : null }, [r.L.buffer, r.R.buffer]);
+            }
+        }
+    };
+}
+const MUSIC_WORKER_SRC = () =>
+    'const MusicCore = (' + musicCoreLib.toString() + ')();\n' +
+    'const handle = (' + musicHandler.toString() + ')(MusicCore, (m, t) => self.postMessage(m, t));\n' +
+    'self.onmessage = (e) => handle(e.data);';
+
+// ---------------------------------------------------------------------
+//  MotorMusical en el hilo del juego: solo programa bloques en el AudioContext y reenvía órdenes al núcleo.
+// ---------------------------------------------------------------------
+class MusicEngine {
+    constructor(ctx, dest) {
+        this.ctx = ctx;
+        this.level = 0.6;
+        this.out = ctx.createGain();
+        this.out.gain.value = this.level;
+        this.out.connect(dest);
+
+        // En pantallas táctiles (móviles) el tema epic se calcula con menos capas; en PC, completo.
+        this.touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+
+        this.running = false;
+        this.fading = false;
+        this.fadeEnd = 0;
+        this.gen = 0;
+        this.timer = 0;
+        this.sources = new Set();
+        this.baseFrame = 0;
+        this.framesDone = 0;
+        this.look = MUSIC_LOOKAHEAD; this.rsT = [];
+        this.resyncs = 0;             // veces que el audio se quedó corto y hubo que reenganchar (depuración)
+        this.inflight = 0;            // bloques pedidos y aún no recibidos
+        this.cpu = 0;
+        this.state = null;
+        this._hp = 1;
+        this._pendingSR = null;
+
+        const o = { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch, F: MUSIC_FRAMES };
+        try {
+            this.worker = new Worker(URL.createObjectURL(new Blob([MUSIC_WORKER_SRC()], { type: 'text/javascript' })));
+            this.worker.onmessage = (e) => this.onChunk(e.data);
+            this.worker.onerror = () => this.useLocal();
+            this.worker.postMessage({ c: 'init', o });
+        } catch (e) { this.worker = null; this.local = musicHandler(musicCoreLib(), (m) => this.onChunk(m)); this.local({ c: 'init', o }); }
+    }
+
+    // Sin Worker (o si falla): el mismo núcleo en el hilo principal
+    useLocal() {
+        if (this.local) return;
+        try { this.worker.terminate(); } catch (e) {}
+        this.worker = null; this.inflight = 0;
+        this.local = musicHandler(musicCoreLib(), (m) => this.onChunk(m));
+        this.local({ c: 'init', o: { tracks: MUSIC_TRACKS, order: MUSIC_ORDER, outSR: this.ctx.sampleRate, musicSR: MUSIC_SR, touch: this.touch, F: MUSIC_FRAMES } });
+    }
+    send(m) { if (this.worker) this.worker.postMessage(m); else this.local(m); }
+    call(f, ...a) { this.send({ c: 'call', f, a }); }
+
+    // ================= control desde el juego =================
+    start() {
+        const now = this.ctx.currentTime;
+        if (this.running) {
+            if (this.fading) {                        // se estaba apagando: vuelve suavemente
+                this.fading = false; this.call('setFading', false);
+                this.out.gain.cancelScheduledValues(now);
+                this.out.gain.setValueAtTime(this.out.gain.value, now);
+                this.out.gain.linearRampToValueAtTime(this.level, now + 0.4);
+            }
+            return;
+        }
+        if (this._pendingSR) { const sr = this._pendingSR; this._pendingSR = null; this._applySampleRate(sr); }
+        this.running = true;
+        this.fading = false; this.call('setFading', false);
+        this.out.gain.cancelScheduledValues(now);
+        this.out.gain.setValueAtTime(0.0001, now);
+        this.out.gain.linearRampToValueAtTime(this.level, now + 0.5);
+        this.baseFrame = Math.ceil((now + 0.08) * this.ctx.sampleRate);
+        this.framesDone = 0; this.inflight = 0;
+        this.loop(++this.gen);
+    }
+
+    // Sin fundido: corta ya. Con fade (s): la música se "apaga" bajando volumen y cerrando el filtro.
+    stop(fade = 0) {
+        if (!this.running) return;
+        if (fade <= 0) { this.finishStop(); return; }
+        if (this.fading) return;
+        const now = this.ctx.currentTime;
+        this.fading = true; this.call('setFading', true);
+        this.fadeEnd = now + fade + 0.1;
+        this.out.gain.cancelScheduledValues(now);
+        this.out.gain.setValueAtTime(Math.max(this.out.gain.value, 0.0001), now);
+        this.out.gain.linearRampToValueAtTime(0.0001, now + fade);
+    }
+
+    finishStop() {
+        this.running = false;
+        this.fading = false; this.call('setFading', false);
+        this.gen++; this.inflight = 0;
+        clearTimeout(this.timer);
+        for (const s of this.sources) { try { s.stop(); s.disconnect(); } catch (e) {} }
+        this.sources.clear();
+        const now = this.ctx.currentTime;
+        this.out.gain.cancelScheduledValues(now);
+        this.out.gain.setValueAtTime(0.0001, now);
+    }
+
+    hardReset() { this._hp = 1; this.call('hardReset'); }
+    // Nueva partida o vuelta al menú. Si la música sigue sonando, vuelve al tema alegre con
+    // una transición normal (sin cortes). Si estaba parada, empieza de cero.
+    newRun() {
+        if (this.fading) this.finishStop();
+        if (!this.running) { this.hardReset(); return; }
+        this.call('softNewRun');
+    }
+    onKill() { this.call('onKill'); }
+    setSection(name) { this.call('setSection', name); }
+    setWave(w) { this.call('setWave', w); }
+    setCombo(c) { this.call('setCombo', c); }
+    setHealth(f) {                                // se llama cada fotograma: solo se envía si cambia
+        const q = Math.round(f * 200) / 200;
+        if (q === this._hp) return;
+        this._hp = q; this.call('setHealth', q);
+    }
+    setLevel(v) {
+        this.level = v;
+        if (this.running && !this.fading) this.out.gain.setTargetAtTime(v, this.ctx.currentTime, 0.05);
+    }
+    setQuality(lite) { this.call('setQuality', lite); }
+    // La frecuencia interna nueva se aplica al empezar la siguiente partida si la música ya suena (así no se corta a mitad).
+    setSampleRate(sr) {
+        if (sr === MUSIC_SR && !this._pendingSR) return;
+        if (this.running) { this._pendingSR = sr; return; }
+        this._pendingSR = null;
+        this._applySampleRate(sr);
+    }
+    _applySampleRate(sr) { MUSIC_SR = sr; this._hp = 1; this.call('setSR', sr); }
+    // Si el audio se queda corto 3 veces en 10 s, el dispositivo va justo: más colchón de música y efectos más ligeros.
+    noteResync() {
+        this.resyncs++;
+        const t = performance.now(); this.rsT.push(t); this.lastResync = t;
+        while (this.rsT.length && t - this.rsT[0] > 10000) this.rsT.shift();
+        if (this.rsT.length >= 3 && this.look < 2) { this.look = 2.0; if (typeof SFX_LITE !== 'undefined') SFX_LITE = true; }
+    }
+    getState() { return this.state; }             // depuración: audio.music.getState()
+    // Depuración: en la consola escribe  audio.music.diag()  (si la música se corta, copia lo que salga)
+    diag() {
+        return { motor: this.worker ? 'worker' : 'hilo principal', cortes: this.resyncs, colchon_s: this.look,
+                 cpu_musica: +(this.cpu || 0).toFixed(2), cola: this.inflight, estado: this.state };
+    }
+
+    // ================= programación en el contexto de audio =================
+    // Pide bloques al núcleo hasta tener MUSIC_LOOKAHEAD segundos de colchón.
+    loop(id) {
+        if (id !== this.gen) return;
+        const ctx = this.ctx, sr = ctx.sampleRate, F = MUSIC_FRAMES, dur = F / sr, now = ctx.currentTime;
+        if ((this.baseFrame + this.framesDone) / sr < now + 0.01) {      // nos quedamos cortos: reenganchar
+            this.baseFrame = Math.ceil((now + 0.12) * sr);
+            this.framesDone = 0; this.noteResync();
+        }
+        const end = (this.baseFrame + this.framesDone + this.inflight * F) / sr;
+        const look = this.cpu > 0.3 ? Math.max(this.look, 1.8) : this.look;   // si el motor va apretado, más colchón
+        const k = Math.min(12 - this.inflight, Math.ceil((now + look - end) / dur));
+        const kk = this.worker ? k : Math.min(k, (end - now) < 0.25 ? 2 : 1);
+        if (kk > 0) { this.inflight += kk; this.send({ c: 'render', gen: id, F, k: kk }); }
+
+        if (this.fading && now >= this.fadeEnd) { this.finishStop(); return; }
+        this.timer = setTimeout(() => this.loop(id), 30);
+    }
+
+    // Pantalla de carga: avisa cuando el núcleo de música ya está calentado (o tras 'ms' como máximo).
+    whenReady(cb, ms = 15000) {
+        if (this.ready) { cb(true); return; }
+        let done = false;
+        const fin = (ok) => { if (done) return; done = true; clearTimeout(t); cb(ok); };
+        const t = setTimeout(() => fin(false), ms);
+        (this._readyCbs = this._readyCbs || []).push(fin);
+    }
+
+    onChunk(m) {
+        if (m.c === 'ready') { this.ready = true; const l = this._readyCbs || []; this._readyCbs = []; l.forEach(f => f(true)); return; }
+        if (m.c !== 'chunk' || m.gen !== this.gen || !this.running) return;
+        this.inflight = Math.max(0, this.inflight - 1);
+        this.cpu = m.cpu; if (m.st) this.state = m.st;
+        const ctx = this.ctx, sr = ctx.sampleRate, F = m.L.length;
+        let when = (this.baseFrame + this.framesDone) / sr;
+        if (when < ctx.currentTime + 0.005) {                              // llegó tarde: reenganchar
+            this.baseFrame = Math.ceil((ctx.currentTime + 0.12) * sr);
+            this.framesDone = 0; when = this.baseFrame / sr; this.noteResync();
+        }
+        const buf = ctx.createBuffer(2, F, sr);
+        buf.copyToChannel(m.L, 0); buf.copyToChannel(m.R, 1);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        src.connect(this.out);
+        src.onended = () => { this.sources.delete(src); src.disconnect(); };
+        this.sources.add(src);
+        src.start(when);
+        this.framesDone += F;
+    }
+}
+
+
+// ########## [music_minijefes.js] ##########
+// =====================================================================
+//  TEMA DE MINIJEFES (antes music_mini.js, va DESPUÉS de la música base)
+// =====================================================================
+
+// =====================================================================
+//  TEMA "MINIJEFES" — bytebeat (t = muestra entera)
+//  Se usa en las oleadas con minijefes (cada 4 oleadas, salvo las de jefe).
+//  Cargar DESPUÉS de music.js y ANTES de game.js.
+// =====================================================================
+
+// El filtro "l" conserva su valor entre muestras (como en el bytebeat original).
+// Se reinicia solo en t = 0.
+const SRC_MINI = `
+var l = 0;
+return function (t) {
+    if (t === 0) l = 0;
+
+    // 1. MELODÍA Y SECUENCIADOR DE NOTAS
+    let notes = '03202222222222270320222222233330';
+    let p = t * 2 ** (notes[31 & t >> 13] / 12);
+    let n = p * (1 + 2 * (1 & t >> 18)) ^ p >> 2;
+    let m = (-cos(t * PI / 1024 / ['44882444'[7 & t >> 14], '4'][1 & t >> 18]) + 1);
+    l += ((n & 255) - l) * (m ** 2 / 3);
+    let sm = (l / 127 - 1) * 1.9;
+
+    // 2. TEMPORIZACIÓN DEL RITMO
+    let pl = 2 << 13;
+    let pr = t % pl;
+    let c = 3 & t >> 14;
+    let kg = c == 0;
+
+    // 3. BOMBO
+    let k = tanh(cos(sqrt(pr) - (.00009 * pr * (1 + 1 / pr * 2)) + random() * 4 * (1 / pr * 100) ** 1.5) * (1 - pr / pl) ** 2) * kg;
+
+    // 4. CANALES Y PERCUSIÓN
+    let a = () => {
+        let sg = c == 2;
+        let s = tanh(6 * cos((5E6 + pr) * (1 - (1 / pr / 80) * 6) / 70) * ((1 - pr / pl) ** 10) + (random() - .5) * 1.5 * (1 - pr / pl)) / 2 * sg;
+        let h = tanh((random() - .7) * (1 - pr / pl * 2 % 1) ** 5 * sin(cos(t / 8) * sin(t + sin(t / '4631'[3 & t >> 13]))) * (1 - pr / pl * 2 % 1));
+        let cy = (random() - .5) * (1 - pr / pl) ** 5;
+        let sc = kg | sg ? min(pr / pl * 2, 1) : 1;
+        return tanh(1.5 * (s + k + (h * .7 + cy * .5) * sc ** .4 + tanh(sin(.5 + 1.2 * asin(sin(p / 512 * PI))) * m * .9 + sm) * .5 * sc ** 2));
+    };
+
+    return [a(), a()];
+};`;
+
+const MINI_RATE = 48000;   // Floatbeat a 48000 Hz (estéreo), como en la captura de Bytebeat Composer
+
+// Registro del tema en el director (usa las constantes de music.js)
+MUSIC_TRACKS.mini = {
+    src: SRC_MINI, type: 'byte', rate: MINI_RATE,
+    beat: 8192 / 48000, bar: 4 * 8192 / 48000,   // la melodía avanza cada 8192 muestras (~0.17 s a 48 kHz)
+    trim: 1.0, fadeIn: 2.5, fadeOut: 4.0, major: true
+};
+MUSIC_ORDER.push('mini');
+
+// (El director y el modo "raw" de este tema están ahora dentro del núcleo, en music_motor.js.)
+
+
+// ########## [audio.js] ##########
+// Motor de Audio
+class AudioEngine {
+    constructor() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.master = this.ctx.createGain();
+        this.master.gain.value = 0.6;
+        
+        this.compressor = this.ctx.createDynamicsCompressor();
+        this.compressor.threshold.setValueAtTime(-12, this.ctx.currentTime);
+        this.compressor.knee.setValueAtTime(30, this.ctx.currentTime);
+        this.compressor.ratio.setValueAtTime(15, this.ctx.currentTime);
+        this.compressor.attack.setValueAtTime(0.005, this.ctx.currentTime);
+        this.compressor.release.setValueAtTime(0.1, this.ctx.currentTime);
+ 
+        this.master.connect(this.compressor);
+        this.compressor.connect(this.ctx.destination);
+        
+        this.isPlaying = false;
+        this.nextNoteTime = 0;
+        this.rhythmIndex = 0;
+        this.music = new MusicEngine(this.ctx, this.master);
+    }
+ 
+    resume() { if(this.ctx.state === 'suspended') this.ctx.resume(); }
+ 
+    playShoot(weaponType, isEnemy = false) {
+        if(!this.isPlaying) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+ 
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.master);
+ 
+        if (weaponType === 'KATANA') {
+            const bufferSize = this.ctx.sampleRate * 0.2;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * Math.sin((i/bufferSize)*Math.PI);
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer; noise.connect(filter);
+            filter.type = 'highpass'; filter.frequency.setValueAtTime(1000, t); filter.frequency.linearRampToValueAtTime(5000, t+0.1);
+            gain.gain.setValueAtTime(0.8, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            noise.start(t); return;
+        }
+        
+        if (isEnemy) {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(400, t);
+            osc.frequency.exponentialRampToValueAtTime(100, t + 0.2);
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+            osc.start(t); osc.stop(t + 0.2);
+            return;
+        }
+ 
+        if (weaponType === 'SHOTGUN') {
+            const bufferSize = this.ctx.sampleRate * 0.2;
+            const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = this.ctx.createBufferSource();
+            noise.buffer = buffer; noise.connect(filter);
+            filter.type = 'lowpass'; filter.frequency.setValueAtTime(2000, t); filter.frequency.exponentialRampToValueAtTime(100, t + 0.25);
+            gain.gain.setValueAtTime(0.7, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+            noise.start(t);
+        } else if (weaponType === 'MINIGUN') {
+            osc.type = 'square'; osc.frequency.setValueAtTime(700, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.08);
+            gain.gain.setValueAtTime(0.2, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.08);
+            osc.start(t); osc.stop(t + 0.08);
+        } else {
+            osc.type = 'sawtooth'; osc.frequency.setValueAtTime(900, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.12);
+            gain.gain.setValueAtTime(0.25, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.12);
+            osc.start(t); osc.stop(t + 0.12);
+        }
+    }
+ 
+    playHit(isPlayer = false) {
+        if(!this.isPlaying) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = isPlayer ? 'sawtooth' : 'triangle';
+        
+        const baseFreq = isPlayer ? 150 : 800 + (Math.min(engine.combo, 50) * 10);
+        osc.frequency.setValueAtTime(baseFreq, t);
+        osc.frequency.exponentialRampToValueAtTime(isPlayer ? 50 : 200, t + 0.1);
+        gain.gain.setValueAtTime(isPlayer ? 0.8 : 0.4, t);
+        gain.gain.linearRampToValueAtTime(0.01, t + 0.1);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(t); osc.stop(t + 0.1);
+    }
+ 
+    playExplosion() {
+        if(!this.isPlaying) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, t); osc.frequency.exponentialRampToValueAtTime(10, t + 0.6);
+        gain.gain.setValueAtTime(1.0, t); gain.gain.exponentialRampToValueAtTime(0.01, t + 0.6);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(t); osc.stop(t + 0.6);
+    }
+ 
+    playDash() {
+        if(!this.isPlaying) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(300, t); osc.frequency.linearRampToValueAtTime(900, t + 0.1);
+        gain.gain.setValueAtTime(0.5, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.15);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(t); osc.stop(t + 0.15);
+    }
+ 
+    playPickup() {
+        if(!this.isPlaying) return;
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine'; osc.frequency.setValueAtTime(600, t); osc.frequency.linearRampToValueAtTime(1400, t + 0.15);
+        gain.gain.setValueAtTime(0.4, t); gain.gain.linearRampToValueAtTime(0.01, t + 0.15);
+        osc.connect(gain); gain.connect(this.master);
+        osc.start(t); osc.stop(t + 0.15);
+    }
+ 
+    startMusic() { this.isPlaying = true; this.music.start(); }
+    stopMusic() { this.isPlaying = false; this.music.stop(1.8); }
+ 
+    scheduler() {
+        if (!this.isPlaying) return;
+        while (this.nextNoteTime < this.ctx.currentTime + 0.1) {
+            this.scheduleBeat(this.nextNoteTime);
+            this.nextNoteTime += 0.22;
+            this.rhythmIndex++;
+        }
+        setTimeout(() => this.scheduler(), 25);
+    }
+ 
+    scheduleBeat(time) {
+        if (this.rhythmIndex % 4 === 0) {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.connect(gain); gain.connect(this.master);
+            osc.frequency.setValueAtTime(150, time); osc.frequency.exponentialRampToValueAtTime(20, time + 0.15);
+            gain.gain.setValueAtTime(0.8, time); gain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+            osc.start(time); osc.stop(time + 0.15);
+        }
+ 
+        const bassOsc = this.ctx.createOscillator();
+        const bassGain = this.ctx.createGain();
+        const bassFilter = this.ctx.createBiquadFilter();
+        
+        bassOsc.type = 'sawtooth';
+        const notes = [41.2, 49, 36.7, 41.2, 55, 36.7]; 
+        const note = notes[Math.floor(this.rhythmIndex / 2) % notes.length];
+        bassOsc.frequency.setValueAtTime(note * (this.rhythmIndex % 2 === 0 ? 1 : 2), time);
+ 
+        bassFilter.type = 'lowpass';
+        const filterBase = 200 + (Math.min(engine?.combo || 0, 40) * 50);
+        bassFilter.frequency.setValueAtTime(filterBase, time);
+        bassFilter.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+ 
+        bassGain.gain.setValueAtTime(0.35, time);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
+ 
+        bassOsc.connect(bassFilter); bassFilter.connect(bassGain); bassGain.connect(this.master);
+        bassOsc.start(time); bassOsc.stop(time + 0.15);
+    }
+}
+const audio = new AudioEngine();
+ 
+
