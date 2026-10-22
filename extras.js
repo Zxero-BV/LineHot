@@ -157,10 +157,10 @@ Enemy.prototype.update = function (dt, px, py) {
     if (!this.kind) return _x_eUpdate.call(this, dt, px, py);
     this.knockback.x *= 0.85; this.knockback.y *= 0.85;
     const d = dist(this.x, this.y, px, py), a = Math.atan2(py - this.y, px - this.x);
-    if (this.kind === 'split') { LH.moveE(this, dt, a, this.speed); return; }
+    if (this.kind === 'split') { LH.moveE(this, dt, engine.steer(this, a), this.speed); return; }
     this.st += dt;
     if (this.state === 'chase') {
-        LH.moveE(this, dt, a + Math.sin(engine.time * 5 + this.x * 0.03) * 0.3, this.speed);
+        LH.moveE(this, dt, engine.steer(this, a) + Math.sin(engine.time * 5 + this.x * 0.03) * 0.3, this.speed);
         this.ang = a; this.cd -= dt;
         if (this.cd <= 0 && d < 330) { this.state = 'wind'; this.st = 0; }
     } else if (this.state === 'wind') {                              // aviso: se detiene y apunta
@@ -231,7 +231,7 @@ GameEngine.prototype.hitEnemy = function (en, dmg, fx, fy, melee) {
 // ---------------------------------------------------------------- objetos especiales
 LH.nuke = () => {
     const e = engine, p = e.player, k0 = e.kills;
-    e.rings.push({ x: p.x, y: p.y, max: 1500, life: 0.7, maxLife: 0.7 });
+    e.rings.push({ x: p.x, y: p.y, max: 1500, life: 0.7, maxLife: 0.7, col: '#ff3355' });
     e.addShake(60); e.doHitStop(0.15); audio.playExplosion(); haptic([80, 40, 160]);
     for (let pass = 0; pass < 2; pass++) {                           // 2.ª pasada: crías de divisores
         for (const en of e.enemies.slice()) {
@@ -296,7 +296,7 @@ LH.fireRocket = (p) => {
 };
 LH.explode = (x, y) => {
     const e = engine, R = 125, dm = 1 + 0.2 * LH.lvl('dmg');
-    e.rings.push({ x, y, max: R, life: 0.35, maxLife: 0.35 });
+    e.rings.push({ x, y, max: R, life: 0.35, maxLife: 0.35, col: '#ff9a3c' });
     for (const en of e.enemies.slice()) {
         if (en.dead) continue;
         const d = dist(x, y, en.x, en.y); if (d > R + en.radius) continue;
@@ -348,7 +348,7 @@ LH.bossTick = (e, dt) => {
     if (ph > b.phase) {                                              // cambio de fase: sacudida, onda y el jefe queda vulnerable un instante
         b.phase = ph; b.phT = 1.2;
         e.banner(ph === 3 ? 'FASE 3 · FURIA' : 'FASE 2', ph === 3 ? C.red : C.pink);
-        e.rings.push({ x: b.x, y: b.y, max: 560, life: 0.6, maxLife: 0.6 });
+        e.rings.push({ x: b.x, y: b.y, max: 560, life: 0.6, maxLife: 0.6, col: '#ff2d6f' });
         e.bullets = e.bullets.filter(q => !q.isEnemy);
         e.addShake(45); e.doHitStop(0.25); audio.playExplosion(); haptic([60, 40, 120]);
         b.rush = 0; b.telegraph = 0; b.recover = 1.0;
@@ -562,7 +562,7 @@ LH.tick = (e, dt) => {
     for (const en of e.enemies) {
         if (en.kind === 'kami' && !en.dead && en.state === 'dash' && dist(en.x, en.y, p.x, p.y) < p.radius + en.radius + 6) {
             en.dead = true;
-            e.rings.push({ x: en.x, y: en.y, max: 95, life: 0.3, maxLife: 0.3 });
+            e.rings.push({ x: en.x, y: en.y, max: 95, life: 0.3, maxLife: 0.3, col: KAMI_COL });
             e.spawnParticle(en.x, en.y, KAMI_COL, 60, 0, 0, 500, 'blood'); e.spawnParticle(en.x, en.y, C.white, 10, 0, 0, 300);
             e.addShake(26); audio.playExplosion();
             if (p.iframes <= 0 && dist(en.x, en.y, p.x, p.y) < 95) { p.hp -= 20; p.iframes = 0.5; e.glitch(); if (p.hp <= 0) { e.gameOver(); return; } }

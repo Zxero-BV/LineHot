@@ -745,3 +745,45 @@ body.perf #hurt { animation: none; }
 
 @media (max-height: 520px) { .chips { gap: 4px; max-width: min(96%, 560px); } .chip { font-size: .5rem; padding: 2px 6px; } .btn.has-sub { padding-top: 6px; padding-bottom: 6px; } }
 @media (max-width: 480px) { .btn-row .btn { font-size: clamp(.66rem, 3.4vw, .9rem); letter-spacing: .05em; gap: 6px; } .btn-row .btn .ico { width: .95em; height: .95em; } }
+
+/* ===== pulido: móvil horizontal ===== */
+/* Etiquetas largas (MODIFICADORES, CONTROLES) se encogen un poco en vez de recortarse o pegarse al borde. */
+@media (max-height: 520px) {
+    .btn-row .btn, .btn.has-sub { letter-spacing: .03em; padding-left: 8px; padding-right: 8px; }
+    .btn-row .btn > span, .btn.has-sub > span:first-child { font-size: clamp(.62rem, 2.5vw, .85rem); white-space: nowrap; }
+    .btn-row .btn .ico { width: .9em; height: .9em; }
+    /* pestañas (JUEGO/AUDIO/GRÁFICOS...): objetivo táctil más cómodo */
+    .tab { min-height: 36px; }
+}
+
+/* ===== estado de la nube (menú principal) ===== */
+.cloud-status { margin: 2px 0 0; font-size: .6rem; letter-spacing: .16em; color: #7fe9a8; opacity: .85; text-align: center; }
+.cloud-status.warn { color: #ffc94d; }
+#pMain .cloud-status { grid-column: 1; }
+@media (max-height: 520px) { .cloud-status { font-size: .52rem; letter-spacing: .1em; } }
+
+
+/* ########## [mejoras.css] ########## */
+/* cuenta atrás al reanudar */
+#countdown { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; pointer-events: none;
+    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: clamp(5rem, 24vmin, 10rem); color: #fff;
+    text-shadow: 0 0 22px var(--neon-cyan), 0 0 60px var(--neon-cyan); }
+#countdown.pop span { animation: cdPop .5s cubic-bezier(.2, .9, .3, 1) both; }
+@keyframes cdPop { from { transform: scale(2); opacity: 0; } 35% { opacity: 1; } to { transform: scale(1); opacity: .9; } }
+/* enemigos restantes bajo el número de oleada */
+#waveEl small { display: block; margin-top: 2px; font-size: .55em; letter-spacing: .22em; font-weight: 700; color: #7fe9ff; opacity: .75; }
+body.touch #waveEl small { font-size: 9px; letter-spacing: 2px; }
+/* barra de tiempo del combo */
+.combo-container::after { content: ''; display: block; height: 3px; margin: 3px 0 0 auto; border-radius: 2px; background: currentColor;
+    width: calc(var(--ct, 0) * 100%); box-shadow: 0 0 8px currentColor; transition: width .12s linear; }
+.combo-container.hot { color: var(--neon-red); animation: comboHot .3s ease-in-out infinite alternate; }
+@keyframes comboHot { to { opacity: .55; } }
+/* reducir destellos */
+body.calm .crt-flicker, body.calm .chromatic-glitch, body.calm #hurt, body.calm .combo-container.hot { animation: none !important; }
+body.calm .chromatic-glitch { text-shadow: none; transform: none; }
+@media (prefers-reduced-motion: reduce) { #countdown.pop span { animation: none; } .combo-container.hot { animation: none; } }
+body.perf .combo-container::after { transition: none; box-shadow: none; }
+/* hueco para la 2.ª línea del contador de oleada */
+#fxChips { top: calc(max(var(--pad), var(--sat)) + 44px); }
+body.touch #fxChips { top: calc(max(var(--pad), var(--sat)) + 38px); }
+#bossBar { top: calc(max(var(--pad), var(--sat)) + 70px); }

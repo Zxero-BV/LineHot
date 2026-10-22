@@ -407,7 +407,7 @@ class GameEngine {
         this.drawFx(ctx); this.drawBullets(ctx);
         for (const e of this.enemies) e.draw(ctx);
         
-        if (this.state === 'PLAYING' || this.state === 'GAMEOVER') {
+        if (this.state === 'PLAYING' || this.state === 'GAMEOVER' || this.state === 'COUNT' || this.state === 'UPGRADE') {
             if(this.player.hp > 0) { this.player.drawTrail(ctx); this.player.draw(ctx); }
         }
  
@@ -416,7 +416,7 @@ class GameEngine {
  
         if (this.state === 'PLAYING') this.drawJoysticks(ctx);
         
-        if (this.hitStop > 0 && this.shakeAmount > 15 && !Settings.perf && Q.level === 0) {
+        if (this.hitStop > 0 && this.shakeAmount > 15 && !Settings.perf && !Settings.calm && Q.level === 0) {
             ctx.globalCompositeOperation = 'screen';
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.drawImage(canvas, -2 * dpr, 0);
@@ -463,7 +463,7 @@ Enemy.prototype.drawBig = function(ctx) {
     const r = this.radius, t = engine.time, boss = this.boss, col = this.color;
     if (!boss) { ctx.fillStyle = C.red; ctx.fillRect(-r, -r - 14, r * 2 * (this.hp / this.maxHp), 5); }
     const poly = (c, rad, n) => { c.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * TAU; c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); } c.closePath(); };
-    const idO = boss ? 'bgO' : 'mjO', idI = boss ? 'bgI' : 'mjI';
+    const idO = (boss ? 'bgO' : 'mjO') + col, idI = (boss ? 'bgI' : 'mjI') + col;   // un sprite por color (cada jefe tiene el suyo)
     const so = Spr.map.get(idO) || Spr.make(idO, r * 2 + 90, r * 2 + 90, c => {
         c.fillStyle = C.bg; c.strokeStyle = col; c.lineWidth = boss ? 5 : 4; c.shadowBlur = 30; c.shadowColor = col;
         poly(c, r, boss ? 8 : 6); c.fill(); c.stroke();
@@ -604,7 +604,7 @@ function loop(timestamp) {
     const el = timestamp - _lastDraw;
     if (st === 'PAUSED') { if (!engine.needsDraw) return; }
     else {
-        const interval = st === 'PLAYING' ? FRAME_MS : 1000 / 30;
+        const interval = (st === 'PLAYING' || st === 'COUNT') ? FRAME_MS : 1000 / 30;
         if (el < interval - 2) return;
         _lastDraw = timestamp - (el % interval);
     }
@@ -613,7 +613,9 @@ function loop(timestamp) {
     lastTime = timestamp;
 
     updateMouseWorld();
-    engine.update(dt);
+    // Con tirones (dt grande) el juego se calcula en varios pasos cortos: así nada atraviesa paredes ni se salta colisiones
+    const steps = Math.ceil(dt / 0.034);
+    for (let i = 0; i < steps; i++) engine.update(dt / steps);
     engine.draw();
     fpsFrames++; fpsAcc += dt;
     if (fpsAcc >= 0.5) {

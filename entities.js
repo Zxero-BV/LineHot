@@ -154,11 +154,11 @@ class Enemy extends Entity {
  
         let d = dist(this.x, this.y, px, py);
         let angleToPlayer = Math.atan2(py - this.y, px - this.x);
-        let moveAngle = angleToPlayer;
+        let moveAngle = engine.steer(this, angleToPlayer);       // rodea las paredes en vez de chocar contra ellas
         if (this.type === 3) moveAngle += Math.sin(engine.time * 9 + this.x * 0.05) * 0.6;
  
         if (this.type === 2) { 
-            if (d < 250) {
+            if (d < 250 && engine.hasLOS(this)) {              // el tirador solo rodea y dispara si te ve
                 moveAngle += Math.PI / 2; 
                 this.fireCooldown -= dt;
                 if (this.fireCooldown <= 0) {
@@ -313,8 +313,6 @@ class Particle {
         if(this.type === 'normal' || this.type === 'blood') { this.vx *= 0.93; this.vy *= 0.93; }
         this.life -= dt;
  
-        if (this.type === 'blood' && this.life <= 0 && this.x > 0 && this.x < width && this.y > 0 && this.y < height && engine.stains.length < (Settings.perf ? 60 : 220)) {
-            engine.stains.push({ x: this.x, y: this.y, r: this.size * 1.5, color: this.color, life: 6, max: 6 });
-        }
+        if (this.type === 'blood' && this.life <= 0 && this.x > 0 && this.x < width && this.y > 0 && this.y < height) engine.addDecal(this.x, this.y, this.size * 1.4, this.color);
     }
 }

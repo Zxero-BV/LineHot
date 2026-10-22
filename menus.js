@@ -23,8 +23,8 @@ Object.assign(GameEngine.prototype, {
     drawRings(ctx) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineWidth = 4;
         for (const r of this.rings) {
-            const k = r.life / r.maxLife;
-            ctx.strokeStyle = `rgba(0,243,255,${k})`;
+            const k = Math.max(0, r.life / r.maxLife);
+            ctx.globalAlpha = k; ctx.strokeStyle = r.col || '#00f3ff';
             ctx.beginPath(); ctx.arc(r.x, r.y, r.max * (1 - k), 0, TAU); ctx.stroke();
         }
         ctx.restore();
@@ -208,7 +208,7 @@ function setupMenu() {
             case 'pulseSide': Settings.pulseSide = Settings.pulseSide === 'left' ? 'right' : 'left'; applySettings(); break;
             case 'toggle': Settings[b.dataset.key] = !Settings[b.dataset.key]; applySettings(); break;
             case 'clearBest':
-                bestScore = 0; localStorage.removeItem('neonCarnageBest');
+                bestScore = 0; try { localStorage.removeItem('neonCarnageBest'); } catch (e) {}
                 Stats.d.bestWave = 0; Stats.save();
                 DOM.highScore.innerText = 'HI: 000000'; Menu.show('pOptions'); Menu.setTab(document.getElementById('pOptions'), 'game'); break;
         }

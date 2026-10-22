@@ -1,3 +1,14 @@
+// ===== ALMACENAMIENTO SEGURO =====
+// En navegadores integrados (WhatsApp, Instagram, Facebook...), modo privado o con cookies bloqueadas,
+// tocar localStorage/sessionStorage LANZA un error y el juego entero dejaba de cargar. Aquí se sustituye por memoria.
+(function () {
+    function mem() { const d = {}; return { getItem: k => (k in d ? d[k] : null), setItem: (k, v) => { d[k] = String(v); }, removeItem: k => { delete d[k]; }, clear: () => { for (const k in d) delete d[k]; }, key: i => Object.keys(d)[i] || null, get length() { return Object.keys(d).length; } }; }
+    ['localStorage', 'sessionStorage'].forEach(n => {
+        let ok = false;
+        try { const st = window[n]; const t = '__lh_t'; st.setItem(t, '1'); st.removeItem(t); ok = true; } catch (e) {}
+        if (!ok) { try { Object.defineProperty(window, n, { value: mem(), configurable: true }); } catch (e) {} }
+    });
+})();
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d', { alpha: false });
  
@@ -27,7 +38,7 @@ const Settings = Object.assign(
     { perf: false, volume: 0.6, music: 0.6, vibrate: true, shake: true, showFps: false, aimAssist: true, pulseSide: 'right', scale: 1, autoQ: true, tutorial: true, sway: !matchMedia('(prefers-reduced-motion: reduce)').matches },
     (() => { try { return JSON.parse(localStorage.getItem('neonCarnageSettings')) || {}; } catch (e) { return {}; } })()
 );
-function saveSettings() { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); }
+function saveSettings() { try { localStorage.setItem('neonCarnageSettings', JSON.stringify(Settings)); } catch (e) {} }
 // RESPLANDOR: shadowBlur cuesta muchísimo si se repite cada fotograma. Solo se permite mientras se pinta un
 // sprite/caché (BLUR_OK); en el bucle de dibujo vale siempre 0. El modo rendimiento lo anula también ahí.
 let BLUR_OK = false;
@@ -66,7 +77,7 @@ const Spr = {
         });
     }
 };
-let bestScore = localStorage.getItem('neonCarnageBest') || 0;
+let bestScore = (() => { try { return localStorage.getItem('neonCarnageBest') || 0; } catch (e) { return 0; } })();
 DOM.highScore.innerText = `HI: ${bestScore.toString().padStart(6, '0')}`;
  
 const C = {
