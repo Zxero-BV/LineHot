@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/png" href="icon-192.png">
     <meta name="theme-color" content="#05010a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +13,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="color-scheme" content="dark">
     <meta name="format-detection" content="telephone=no">
-    <title>Linehot - Ultimate Edition</title>
+    <title>LineHot - Ultimate Edition</title>
+    <meta name="description" content="LineHot: shooter de arena en neón, frenético y sangriento. Juega en el navegador, en el móvil o instálalo como app.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="LineHot - Ultimate Edition">
+    <meta property="og:description" content="Sobrevive a la oleada. Jefes, mejoras, retos diarios y un fondo que late con la música.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="estilos.css">
@@ -61,6 +66,7 @@
                 </div>
             </div>
             <div class="weapon-info">
+                <canvas id="weaponIcon" width="14" height="8"></canvas>
                 <div class="weapon-text" id="weaponName">PISTOL</div>
                 <div id="weaponAmmo">∞</div>
             </div>
@@ -102,6 +108,7 @@
                     <button class="btn btn-sm btn-ghost hidden" data-action="install" id="installBtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.6"/></svg><span>INSTALAR</span></button>
                 </div>
             </div>
+            <p class="ver">LINEHOT v1.3</p>
             <p class="footer-hint kbd-only">ENTER jugar · ↑ ↓ navegar · ESC atrás</p>
         </section>
 
@@ -143,6 +150,7 @@
                     </div>
                     <button class="row switch" data-action="toggle" data-key="autoQ" role="switch"><span class="row-label">CALIDAD AUTOMÁTICA<small>Baja detalles solo si el juego va lento</small></span><span class="sw"></span></button>
                     <button class="row switch" data-action="toggle" data-key="showFps" role="switch"><span class="row-label">MOSTRAR FPS<small>Contador en pantalla</small></span><span class="sw"></span></button>
+                    <button class="row switch" data-action="toggle" data-key="beatBg" role="switch"><span class="row-label">FONDO AL RITMO<small>El fondo, la cuadrícula y un ecualizador se iluminan con los golpes de la música</small></span><span class="sw"></span></button>
                     <label class="row slider"><span class="row-label">TAMAÑO DEL JUEGO</span><span class="val-pill" id="scaleVal">100%</span>
                         <input type="range" id="scaleRange" min="0.6" max="1.5" step="0.05"></label>
                 </div>
@@ -275,12 +283,12 @@
         <button class="btn btn-sm" id="rotateDismiss">SEGUIR EN VERTICAL</button>
     </div>
 
-    <!-- Orden de carga: nube (guardado en Supabase) -> música -> motor de juego -> módulos. NO cambiar el orden de ARCHIVOS.
-         nube.js va primero y los demás scripts se cargan cuando la nube responde (o tras ESPERA_MS). -->
+    <!-- Orden de carga: nube.js (guardado en Supabase) -> motor.js (núcleo, audio, entidades, menús...) -> extras.js (mejoras y novedades).
+         NO cambiar el orden de ARCHIVOS. nube.js va primero y los demás scripts se cargan cuando la nube responde (o tras ESPERA_MS). -->
     <script src="nube.js"></script>
     <script>
     (function () {
-        var ARCHIVOS = ['core.js', 'audio.js', 'entities.js', 'engine.js', 'controles.js', 'menus.js', 'walls.js', 'jefes.js', 'sfx.js', 'arranque.js', 'extras.js', 'mejoras.js', 'mejoras2.js', 'carga.js'];
+        var ARCHIVOS = ['motor.js', 'extras.js'];
         var paso = document.getElementById('ldStep');
         if (paso) paso.textContent = 'CONECTANDO…';
         var hechos = 0, terminado = false;

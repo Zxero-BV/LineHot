@@ -787,3 +787,11 @@ body.perf .combo-container::after { transition: none; box-shadow: none; }
 #fxChips { top: calc(max(var(--pad), var(--sat)) + 44px); }
 body.touch #fxChips { top: calc(max(var(--pad), var(--sat)) + 38px); }
 #bossBar { top: calc(max(var(--pad), var(--sat)) + 70px); }
+#fxChips .o { color: #ff2bd6; border-color: #ff2bd6; text-shadow: 0 0 8px #ff2bd6; }
+
+/* versión en el menú principal */
+.ver { margin: 6px 0 0; font-size: .6rem; letter-spacing: .22em; color: rgba(160, 170, 200, .45); text-align: center; pointer-events: none; }
+
+/* Arma en pixel art (HUD) */
+#weaponIcon { display: block; margin-left: auto; image-rendering: pixelated; image-rendering: crisp-edges; height: auto; }
+body.touch #weaponIcon { transform: scale(.8); transform-origin: right top; }
