@@ -1,6 +1,7 @@
 
 /* ########## [base.css] ########## */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 :root {
     --neon-pink: #ff007f;
@@ -795,3 +796,109 @@ body.touch #fxChips { top: calc(max(var(--pad), var(--sat)) + 38px); }
 /* Arma en pixel art (HUD) */
 #weaponIcon { display: block; margin-left: auto; image-rendering: pixelated; image-rendering: crisp-edges; height: auto; }
 body.touch #weaponIcon { transform: scale(.8); transform-origin: right top; }
+
+
+/* =====================================================================
+   PIXEL ART · HUD, marcos y botones
+   Reglas: sin resplandores borrosos (solo sombras duras de 2 px), esquinas "recortadas" de un píxel,
+   biseles claro/oscuro y tipografía de 8 bits (Press Start 2P) en las cifras y etiquetas cortas del HUD.
+   El texto largo sigue en Orbitron para que nada se desborde.
+   ===================================================================== */
+:root { --px: 'Press Start 2P', 'Courier New', monospace; --ink: #0b0b1c; }
+
+/* --- texto del HUD --- */
+.score-container, #waveEl, .combo-container, .hud-label, .weapon-text, #weaponAmmo, #bossBar, #highScoreEl, #fxChips .fx {
+    font-family: var(--px); font-weight: 400; letter-spacing: 0; text-shadow: 2px 2px 0 #000;
+}
+.score-container { font-size: 14px; line-height: 1.6; text-shadow: 2px 2px 0 #000; }
+#highScoreEl { font-size: 8px; line-height: 1.8; text-shadow: 1px 1px 0 #000; }
+#waveEl { font-size: 12px; letter-spacing: 1px; }
+#waveEl small, #waveEl .sub { font-size: 7px; }
+.hud-label { font-size: 8px; line-height: 1.6; }
+.combo-container { font-size: 14px; line-height: 1.5; transform: scale(.6); transition: transform .12s steps(3), opacity .06s; text-shadow: 2px 2px 0 var(--neon-pink), 4px 4px 0 #000; }
+.combo-container.active { transform: scale(1); }
+
+/* --- barras: marco de 2 px con esquinas recortadas, relleno en segmentos y brillo superior --- */
+.bar-bg {
+    --bc: #cfd6ff;
+    height: 16px; padding: 2px; box-sizing: border-box; border: 2px solid var(--bc); background: var(--ink);
+    clip-path: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+.bar-bg::after { background: repeating-linear-gradient(90deg, transparent 0 6px, var(--ink) 6px 8px); }
+.bar-fill { transition: width .08s steps(4); }
+#healthFill, #dashFill, #bossFill {
+    box-shadow: none;
+    background-image: linear-gradient(to bottom, rgba(255,255,255,.55) 0 2px, transparent 2px calc(100% - 2px), rgba(0,0,0,.4) calc(100% - 2px) 100%);
+    background-color: var(--neon-red);
+}
+#dashFill { background-color: var(--neon-cyan); }
+#bossFill { background-color: var(--neon-pink); }
+#healthGhost { background: #fff; opacity: .85; }
+#bossBar { font-size: 9px; letter-spacing: 3px; text-shadow: 2px 2px 0 #000; }
+#bossBar .bar-bg { --bc: var(--neon-pink); height: 20px; }
+body.touch .bars-container .bar-bg { height: 12px; padding: 2px; }
+
+/* --- panel de arma: marco con el color del arma, título incrustado y casilla del icono --- */
+.weapon-info {
+    --wc: #cfd6ff; position: relative; min-width: 150px; margin: 0 2px 2px 0; padding: 12px 10px 8px;
+    display: grid; grid-template-columns: auto 1fr; grid-template-areas: "ic nm" "ic am"; align-items: center; column-gap: 10px; row-gap: 3px; background: var(--ink);
+    box-shadow: 2px 0 0 0 var(--wc), -2px 0 0 0 var(--wc), 0 2px 0 0 var(--wc), 0 -2px 0 0 var(--wc),
+        inset 2px 2px 0 rgba(255,255,255,.14), inset -2px -2px 0 rgba(0,0,0,.6), 4px 4px 0 2px rgba(0,0,0,.55);
+}
+.weapon-info::before {
+    content: 'ARMA'; position: absolute; top: -6px; left: 8px; padding: 0 4px; background: var(--ink);
+    font: 7px/10px var(--px); color: var(--wc); letter-spacing: 1px;
+}
+#weaponIcon {
+    padding: 4px 6px; background: rgba(255,255,255,.05); filter: none !important;
+    box-shadow: inset 2px 2px 0 rgba(0,0,0,.55), inset -2px -2px 0 rgba(255,255,255,.1);
+    box-sizing: content-box; image-rendering: pixelated; image-rendering: crisp-edges; grid-area: ic; margin: 0;
+}
+.weapon-text { grid-area: nm; text-align: right; }
+#weaponAmmo { grid-area: am; text-align: right; }
+body.touch #weaponIcon { transform: none; }
+.weapon-text { font-size: 10px; line-height: 1.4; text-shadow: 2px 2px 0 #000; }
+#weaponAmmo { font-size: 14px; line-height: 1.3; text-shadow: 2px 2px 0 #000; }
+body.touch .weapon-info { min-width: 120px; padding: 11px 8px 7px; column-gap: 7px; }
+body.touch .weapon-text { font-size: 8px; }
+body.touch #weaponAmmo { font-size: 11px; }
+
+/* --- botón de pausa, chips de efectos y cuadros de datos --- */
+.pause-btn, .btn {
+    --f: currentColor; border: 0; border-radius: 0; background: var(--ink);
+    box-shadow: 2px 0 0 0 var(--f), -2px 0 0 0 var(--f), 0 2px 0 0 var(--f), 0 -2px 0 0 var(--f),
+        inset 2px 2px 0 rgba(255,255,255,.14), inset -2px -2px 0 rgba(0,0,0,.55), 4px 4px 0 2px rgba(0,0,0,.5);
+    text-shadow: 2px 2px 0 #000; clip-path: none;
+}
+.pause-btn { font-family: var(--px); font-size: 11px; font-weight: 400; margin: 2px; }
+.btn:active, .pause-btn:active {
+    background: #17173a; color: inherit; transform: translate(2px, 2px);
+    box-shadow: 2px 0 0 0 var(--f), -2px 0 0 0 var(--f), 0 2px 0 0 var(--f), 0 -2px 0 0 var(--f), inset 2px 2px 0 rgba(0,0,0,.55);
+}
+.btn-main { --f: var(--neon-pink); background: #2a0b30; }
+.btn-main, .btn-main:hover { text-shadow: 2px 2px 0 #000; }
+.btn-ghost { --f: rgba(185, 196, 216, .6); }
+.btn-danger { --f: var(--neon-red); }
+.btn.on { background: #0e2a3a; }
+@media (hover: hover) {
+    .btn:hover, .btn-main:hover, .btn-danger:hover { background: #17173a; filter: brightness(1.25);
+        box-shadow: 2px 0 0 0 var(--f), -2px 0 0 0 var(--f), 0 2px 0 0 var(--f), 0 -2px 0 0 var(--f), inset 2px 2px 0 rgba(255,255,255,.2), inset -2px -2px 0 rgba(0,0,0,.55), 4px 4px 0 2px rgba(0,0,0,.5); }
+    .btn-main:hover { background: #3a1040; }
+}
+.btn.armed, .btn-danger.armed { background: var(--neon-red); --f: #fff; animation: armedPulse .5s steps(2) infinite alternate; }
+@keyframes armedPulse { to { filter: brightness(1.5); } }
+.stat { border: 0; border-radius: 0; background: var(--ink); --f: rgba(0, 243, 255, .55);
+    box-shadow: 2px 0 0 0 var(--f), -2px 0 0 0 var(--f), 0 2px 0 0 var(--f), 0 -2px 0 0 var(--f), inset 2px 2px 0 rgba(255,255,255,.08), inset -2px -2px 0 rgba(0,0,0,.5); }
+.stat-v { font-family: var(--px); font-weight: 400; font-size: .95rem; text-shadow: 2px 2px 0 #000; }
+.stat-grid .stat.wide .stat-v { font-size: 1.4rem; text-shadow: 2px 2px 0 #000; }
+.tip { border-radius: 0; border-left: 4px solid var(--neon-pink); background: var(--ink); box-shadow: inset -2px -2px 0 rgba(0,0,0,.5), inset 2px 2px 0 rgba(255,255,255,.06); }
+#fxChips .fx { font-size: 7px; border: 0; border-radius: 0; padding: 4px 6px; background: var(--ink); box-shadow: 0 0 0 2px currentColor; text-shadow: 1px 1px 0 #000 !important; }
+
+/* --- título y títulos de panel en pixel art --- */
+.title { font-family: var(--px); font-weight: 400; line-height: 1.15; letter-spacing: 4px; font-size: clamp(1.6rem, min(8vw, 11vh), 3.6rem); }
+.title .t-line { text-shadow: 4px 4px 0 #00525a, 8px 8px 0 #000; }
+.title .t-hot { text-shadow: 4px 4px 0 #5a0030, 8px 8px 0 #000; }
+.title.over { font-size: clamp(1.3rem, min(6.5vw, 9vh), 2.8rem); letter-spacing: 2px; }
+.title.over .t-line { text-shadow: 4px 4px 0 #5a0d0d, 8px 8px 0 #000; }
+.panel-title { font-family: var(--px); font-weight: 400; font-size: clamp(1rem, 4vh, 1.5rem); letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
+.tagline { font-family: var(--px); font-size: 7px; letter-spacing: 3px; }

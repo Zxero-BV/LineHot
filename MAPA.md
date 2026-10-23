@@ -178,3 +178,24 @@ Scripts clásicos que comparten variables globales; se cargan en el orden de `in
 - **Enemigos** (`LH.pixBody`, formas en `LH.SH`, detalles en `LH.DE`): drone, tanque, tirador, kamikaze (dardo), divisor (célula) y escudero se generan por código a resolución de píxel, con contorno neón, núcleo oscuro con tramado, anillo de luz interior y detalles. Sustituyen a `enemyBody`/`kindBody`/el dibujo del escudero; mismos tamaños, resplandor y caché `Spr` (sin coste extra por fotograma).
 - **Armas en el suelo**: `Pickup.prototype.draw` envuelto; muestran su sprite con halo y balanceo.
 - `sw.js` → `linehot-v17`.
+
+## Arreglo: música que se corta y barra de ritmo que desaparece
+- `motor.js` (calidad auto): `autoQuality` exige 3 s seguidos por debajo de 40 FPS (antes 2 s a 45), no actúa los primeros 6 s de una partida ni con la pestaña oculta, y `init()` restaura la calidad del modo elegido en cada partida (antes la bajada se arrastraba al reintentar y con ella desaparecía el ecualizador).
+- `extras.js` (mejoras6): el ecualizador se dibuja también en nivel 2; el analizador usa `maxDecibels = -12` y umbrales con tope, porque los graves se saturaban en 1.0 y el bombo no se detectaba (la barra se quedaba pegada).
+- `motor.js` (MusicEngine): margen de arranque 0.25 s (antes 0.08 s provocaba un corte al empezar) y `watchClock()`, que detecta cuando el hilo de audio del navegador se queda sin tiempo (demasiados efectos) y aligera efectos + sube el colchón.
+- `sw.js`: `CACHE` = `linehot-v18`.
+
+## Pixel art (paredes, HUD, nave, efectos)
+- `motor.js` · `buildWallCache`: paredes con azulejos de 10×10 píxeles (1 px = 5 u.) ampliados sin suavizado. Zona 0 ladrillo, zona 1 placas de metal con remaches, zona 2 cristal. Borde de neón de 2 px con luz arriba/izquierda, sombra proyectada y halo punteado (sin `shadowBlur`, así es además más barato).
+- `motor.js` · `pixDot()` (partículas y manchas = cuadrados en rejilla de 3 u.), `drawRings` (ondas = anillo de cuadrados) y nave del jugador rasterizada a 2 u. por píxel (`Player.pix`).
+- `estilos.css` (bloque final «PIXEL ART · HUD»): fuente Press Start 2P para cifras y etiquetas cortas, barras segmentadas con esquinas recortadas, panel de arma con marco del color del arma, botones/cuadros con marco de 2 px y bisel, sombras duras en vez de resplandores.
+- `extras.js` · `LH.paintWeaponIcon`: icono del arma a escala entera (2× o 3×) y color del marco (`--wc`).
+- `sw.js`: `CACHE` = `linehot-v19`.
+
+## PIXEL ART v3 · protagonista, enemigos, jefes, balas y objetos (`extras.js` → sección `[pixel3.js]`, antes de `[carga.js]`)
+- **Protagonista** (`LH.heroGrid`, `LH.drawHero`): héroe cenital (mochila con luz, casco con visera, hombreras, botas y manos que sujetan el arma) en una rejilla de 24×22 px. Animación de zancada al moverse (3 fotogramas) y luz de la mochila parpadeando. Gira dentro de la rejilla de arte (32 ángulos, vecino más cercano) y se amplía a escala entera. Con armas dobles los brazos se abren. Sombra de píxeles. Hueco en `motor.js` (`Player.draw`): `LH.drawHero`.
+- **Enemigos** (`LH.SPR`): drone, tanque, tirador, enjambre, kamikaze, divisor, francotirador y escudero dibujados a mano (cada fila es texto; `half` = se espeja en x, `top` = se espeja en y, `both` = ambos). Claves: `k` contorno, `d m c l h` rampa del color del enemigo, `w r y o g G` colores fijos, `E` ojo (parpadea), `x` solo fotograma A, `z/Z` solo fotograma B (llamas). Aura de píxeles con tramado en lugar de resplandor. `LH.eFrame` da el fotograma (4 por segundo). Ganchos: `Enemy.draw` (motor.js, ids con fotograma), enjambre como sprite, kamikaze/divisor y francotirador (extras.js).
+- **Jefes y minijefes** (`LH.bigGrid`, `LH.drawBig`): coraza poligonal (jefe 8 lados, minijefe 6) con placas, remaches y borde de luz; jaula interior (cuadrado/triángulo) que gira en sentido contrario; núcleo que late hecho de cuadrados. La luz es fija (se calcula tras girar); 12 pasos por vuelta. Gancho en `Enemy.prototype.drawBig` (motor.js). El jefe «glitch» sigue en vectorial.
+- **Balas** (`GameEngine.prototype.drawBullets`): proyectiles cuadrados en rejilla de 3 u. con estela de 3 píxeles y núcleo blanco.
+- **Objetos**: corazón, escudo, reloj de arena, imán y bomba como iconos pixel art flotando sobre su halo (`ICON` en `Pickup.prototype.draw`).
+- `sw.js` → `CACHE` = `linehot-v20`.

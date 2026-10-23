@@ -1,6 +1,6 @@
 // Service worker de LineHot: red primero (siempre la versión nueva si hay conexión) y copia local para jugar sin conexión.
 // Si cambias archivos del juego y quieres forzar limpieza de la copia antigua, sube el número de CACHE.
-const CACHE = 'linehot-v17', FONTS = 'linehot-fuentes';   // la tipografía (Google Fonts) se guarda aparte para jugar sin conexión
+const CACHE = 'linehot-v20', FONTS = 'linehot-fuentes';   // la tipografía (Google Fonts) se guarda aparte para jugar sin conexión
 const FILES = ['./', 'index.html', 'estilos.css', 'nube.js', 'motor.js', 'extras.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.add(f).catch(() => {})))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {

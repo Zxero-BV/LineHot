@@ -929,7 +929,8 @@ class MusicEngine {
         this.out.gain.cancelScheduledValues(now);
         this.out.gain.setValueAtTime(0.0001, now);
         this.out.gain.linearRampToValueAtTime(this.level, now + 0.5);
-        this.baseFrame = Math.ceil((now + 0.08) * this.ctx.sampleRate);
+        this.baseFrame = Math.ceil((now + 0.25) * this.ctx.sampleRate);   // margen de arranque: el worker aún está ocupado con el reinicio
+        this._clk = null;
         this.framesDone = 0; this.inflight = 0;
         this.loop(++this.gen);
     }
@@ -1009,9 +1010,10 @@ class MusicEngine {
         if (id !== this.gen) return;
         const ctx = this.ctx, sr = ctx.sampleRate, F = MUSIC_FRAMES, dur = F / sr, now = ctx.currentTime;
         if ((this.baseFrame + this.framesDone) / sr < now + 0.01) {      // nos quedamos cortos: reenganchar
-            this.baseFrame = Math.ceil((now + 0.12) * sr);
+            this.baseFrame = Math.ceil((now + 0.2) * sr);
             this.framesDone = 0; this.noteResync();
         }
+        this.watchClock(now);
         const end = (this.baseFrame + this.framesDone + this.inflight * F) / sr;
         const look = this.cpu > 0.3 ? Math.max(this.look, 1.8) : this.look;   // si el motor va apretado, más colchón
         const k = Math.min(12 - this.inflight, Math.ceil((now + look - end) / dur));
@@ -1020,6 +1022,25 @@ class MusicEngine {
 
         if (this.fading && now >= this.fadeEnd) { this.finishStop(); return; }
         this.timer = setTimeout(() => this.loop(id), 30);
+    }
+
+    // Vigila el reloj de audio: si avanza más despacio que el reloj real, el hilo de audio del navegador se está
+    // quedando sin tiempo (demasiados efectos a la vez) y la música se entrecorta aunque los bloques lleguen a tiempo.
+    // Antes eso no se detectaba nunca. Si pasa 2 veces en 10 s: efectos ligeros y más colchón.
+    watchClock(now) {
+        const w = performance.now();
+        if (this.ctx.state !== 'running' || document.hidden) { this._clk = null; return; }
+        const c = this._clk;
+        if (!c) { this._clk = { a: now, w, n: 0 }; return; }
+        const da = (now - c.a) * 1000, dw = w - c.w;
+        c.a = now; c.w = w;
+        if (dw > 400) return;                         // el propio hilo principal se atascó: no es culpa del audio
+        if (dw - da > 45) {                           // el audio perdió >45 ms en este intervalo
+            const t = w; this.stalls = (this.stalls || []); this.stalls.push(t);
+            while (this.stalls.length && t - this.stalls[0] > 10000) this.stalls.shift();
+            this.lastResync = t;                      // sube el nivel de carga de efectos (sfxLevel)
+            if (this.stalls.length >= 2) { if (this.look < 1.6) this.look = 1.6; if (typeof SFX_LITE !== 'undefined') SFX_LITE = true; }
+        }
     }
 
     // Pantalla de carga: avisa cuando el núcleo de música ya está calentado (o tras 'ms' como máximo).
@@ -1039,7 +1060,7 @@ class MusicEngine {
         const ctx = this.ctx, sr = ctx.sampleRate, F = m.L.length;
         let when = (this.baseFrame + this.framesDone) / sr;
         if (when < ctx.currentTime + 0.005) {                              // llegó tarde: reenganchar
-            this.baseFrame = Math.ceil((ctx.currentTime + 0.12) * sr);
+            this.baseFrame = Math.ceil((ctx.currentTime + 0.2) * sr);
             this.framesDone = 0; when = this.baseFrame / sr; this.noteResync();
         }
         const buf = ctx.createBuffer(2, F, sr);
@@ -1410,15 +1431,30 @@ class Player extends Entity {
             ctx.lineWidth = k * 10; ctx.strokeStyle = `rgba(255,255,255,${k})`; ctx.stroke();
         }
         const r = this.radius;
-        const s = Spr.map.get('pl') || Spr.make('pl', 120, 100, c => {
-            c.fillStyle = C.bg; c.strokeStyle = C.cyan; c.lineWidth = 3;
-            c.shadowBlur = 20; c.shadowColor = C.cyan;
-            c.beginPath();
-            c.moveTo(r * 1.5, 0); c.lineTo(-r, r); c.lineTo(-r * 0.5, 0); c.lineTo(-r, -r);
-            c.closePath(); c.fill(); c.stroke();
-            c.strokeStyle = C.white; c.lineWidth = 1; c.stroke();
-        });
-        ctx.drawImage(s.cv, -s.w / 2, -s.h / 2, s.w, s.h);
+        if (typeof LH !== 'undefined' && LH.drawHero) { LH.drawHero(ctx, this); ctx.restore(); return; }   // protagonista en pixel art (extras.js › pixel3.js)
+        // NAVE EN PIXEL ART: la misma flecha de siempre, rasterizada a 2 u. por píxel (como las armas), borde cian y casco oscuro
+        const s = Player.pix || (Player.pix = (() => {
+            const W = 24, H = 20, ox = 10, oy = 10, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const c = cv.getContext('2d'), poly = [[12, 0], [-8, 8], [-4, 0], [-8, -8]];
+            const inside = (px, py) => { let ins = false; for (let i = 0, j = 3; i < 4; j = i++) { const [xi, yi] = poly[i], [xj, yj] = poly[j]; if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) ins = !ins; } return ins; };
+            const at = (x, y) => x >= 0 && y >= 0 && x < W && y < H && inside(x + 0.5 - ox, y + 0.5 - oy);
+            for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+                if (!at(x, y)) {                                                                             // contorno oscuro por fuera
+                    if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) { c.fillStyle = '#02080f'; c.fillRect(x, y, 1, 1); }
+                    continue;
+                }
+                const edge = !at(x - 1, y) || !at(x + 1, y) || !at(x, y - 1) || !at(x, y + 1);
+                const top = y < oy;
+                c.fillStyle = edge ? (top ? '#5ffbff' : '#00d9ee') : (top ? '#1d6a9c' : '#124a78');
+                c.fillRect(x, y, 1, 1);
+            }
+            c.fillStyle = '#d6ffff'; c.fillRect(ox + 3, oy - 1, 1, 2); c.fillRect(ox + 9, oy - 1, 2, 2);                 // morro brillante
+            c.fillStyle = '#00f3ff'; c.fillRect(ox - 2, oy - 1, 4, 2); c.fillStyle = '#ffffff'; c.fillRect(ox, oy - 1, 2, 1);   // cabina
+            c.fillStyle = '#ffffff'; c.fillRect(ox - 8, oy - 8, 1, 1); c.fillRect(ox - 8, oy + 7, 1, 1);                 // puntas de ala
+            return cv;
+        })());
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(s, -20, -20, s.width * 2, s.height * 2);
         ctx.restore();
     }
 }
@@ -1485,15 +1521,15 @@ class Enemy extends Entity {
         const t = this.type, r = this.radius;
         if (t >= 4) { ctx.save(); ctx.translate(this.x, this.y); this.drawBig(ctx); ctx.restore(); return; }
         const flash = Math.abs(this.knockback.x) > 50 || Math.abs(this.knockback.y) > 50;
-        if (t === 3) {                                   // enjambre: sin resplandor, se pinta directo
+        if (t === 3 && !(typeof LH !== 'undefined' && LH.PX)) {   // enjambre (antiguo; el pixel art lo dibuja como sprite): sin resplandor, se pinta directo
             const x = this.x, y = this.y;
             ctx.fillStyle = flash ? C.white : C.bg; ctx.strokeStyle = this.color; ctx.lineWidth = 3;
             ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(x - r / 2, y); ctx.lineTo(x + r / 2, y); ctx.stroke();
             return;
         }
-        const id = ENEMY_SPR[t][flash ? 1 : 0];
-        const s = Spr.map.get(id) || Spr.make(id, r * 2 + 64, r * 2 + 64, c => enemyBody(c, t, r, this.color, flash));
+        const fr = (typeof LH !== 'undefined' && LH.eFrame) ? LH.eFrame(this) : 0, id = ENEMY_SPR[t][flash ? 1 : 0] + fr;   // 2 fotogramas de animación
+        const s = Spr.map.get(id) || Spr.make(id, r * 2 + 64, r * 2 + 64, c => enemyBody(c, t, r, this.color, flash, fr));
         ctx.drawImage(s.cv, this.x - s.w / 2, this.y - s.h / 2, s.w, s.h);
         if (t === 1) { ctx.fillStyle = C.red; ctx.fillRect(this.x - r, this.y - r - 12, r * 2 * (this.hp / this.maxHp), 5); }
     }
@@ -1613,6 +1649,13 @@ class Particle {
     }
 }
 
+// PIXEL ART: punto cuadrado alineado a una rejilla de PIX_U unidades (el tamaño crece en saltos, como en un juego de 8 bits)
+const PIX_U = 3;
+function pixDot(ctx, x, y, r) {
+    const s = Math.max(PIX_U, Math.round(r * 2 / PIX_U) * PIX_U);
+    ctx.fillRect(Math.round((x - s / 2) / PIX_U) * PIX_U, Math.round((y - s / 2) / PIX_U) * PIX_U, s, s);
+}
+
 // ########## [engine.js] ##########
 class GameEngine {
     constructor() {
@@ -1664,6 +1707,10 @@ class GameEngine {
  
     init() {
         audio.resume(); audio.music.newRun(); audio.startMusic();
+        // Cada partida empieza con la calidad del modo elegido (antes la bajada automática se arrastraba para siempre
+        // y con ella desaparecían el ecualizador y el fondo al ritmo tras reintentar)
+        _qGrace = performance.now() + 6000;
+        if (typeof reapplyQualityLevel === 'function') { const ql = Q.level; reapplyQualityLevel(); if (Q.level !== ql) resize(); }
         this.reset();
         DOM.screens.classList.add('hidden');
         DOM.uiLayer.classList.remove('chromatic-glitch');
@@ -1927,8 +1974,7 @@ class GameEngine {
                 if (p.type !== 'blood' || p.life <= 0) continue;
                 const r = p.size * (p.life * 2);
                 if (p.color !== cur) { cur = p.color; ctx.fillStyle = cur; }
-                if (r < 2.5) ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-                else { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); }
+                pixDot(ctx, p.x, p.y, r);
             }
             ctx.globalCompositeOperation = 'source-over';
             return;
@@ -1940,8 +1986,7 @@ class GameEngine {
             if (p.type !== 'normal' || p.life <= 0) continue;
             const r = p.size * (p.life * 2);
             if (p.color !== cur) { cur = p.color; ctx.fillStyle = cur; }
-            if (r < 2.5) ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
-            else { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); }
+            pixDot(ctx, p.x, p.y, r);
         }
         ctx.globalCompositeOperation = 'source-over';
         let font = null;
@@ -2074,6 +2119,7 @@ Particle.prototype.bounce = function() {
  
 
 Enemy.prototype.drawBig = function(ctx) {
+    if (typeof LH !== 'undefined' && LH.drawBig) return LH.drawBig(ctx, this);   // coraza en pixel art (extras.js › pixel3.js)
     const r = this.radius, t = engine.time, boss = this.boss, col = this.color;
     if (!boss) { ctx.fillStyle = C.red; ctx.fillRect(-r, -r - 14, r * 2 * (this.hp / this.maxHp), 5); }
     const poly = (c, rad, n) => { c.beginPath(); for (let i = 0; i < n; i++) { const a = i / n * TAU; c[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rad, Math.sin(a) * rad); } c.closePath(); };
@@ -2441,7 +2487,9 @@ Object.assign(GameEngine.prototype, {
         for (const r of this.rings) {
             const k = Math.max(0, r.life / r.maxLife);
             ctx.globalAlpha = k; ctx.strokeStyle = r.col || '#00f3ff';
-            ctx.beginPath(); ctx.arc(r.x, r.y, r.max * (1 - k), 0, TAU); ctx.stroke();
+            const R = r.max * (1 - k), n = Math.max(8, Math.min(72, Math.round(R * TAU / 7)));      // anillo punteado de cuadrados
+            ctx.fillStyle = ctx.strokeStyle;
+            for (let i = 0; i < n; i++) { const a = i / n * TAU; ctx.fillRect(Math.round((r.x + Math.cos(a) * R) / 4) * 4 - 2, Math.round((r.y + Math.sin(a) * R) / 4) * 4 - 2, 4, 4); }
         }
         ctx.restore();
     },
@@ -2786,25 +2834,97 @@ Object.assign(GameEngine.prototype, {
         return false;
     },
     // Las paredes se pintan una vez (con su resplandor) en un lienzo y luego solo se copian: mucho más barato en móvil.
+    // PIXEL ART: cada celda es un azulejo de 10x10 píxeles (1 px = 5 u. de juego) que se pinta en un lienzo diminuto
+    // y se amplía SIN suavizado. Sin resplandor borroso: la luz es un halo punteado (dither), como en un juego de 16 bits.
+    // Zona 0 = ladrillo, zona 1 = placas de metal con remaches, zona 2 = cristal tallado.
     buildWallCache(key) {
         const { g, cols, rows, ox, oy } = this.wallGrid;
         const cv = this.wallCache = this.wallCache || document.createElement('canvas');
         cv.width = canvas.width; cv.height = canvas.height;
         const c = cv.getContext('2d'); c.setTransform(renderK, 0, 0, renderK, 0, 0);
+        const T = 10, P = CELL / T, M = 3, lw = cols * T + 2 * M, lh = rows * T + 2 * M;
+        const lo = this._wallLow = this._wallLow || document.createElement('canvas'); lo.width = lw; lo.height = lh;
+        const L = lo.getContext('2d'); L.clearRect(0, 0, lw, lh);
         const on = (x, y) => x >= 0 && y >= 0 && x < cols && y < rows && g[y][x];
-        const pal = this.wallPal || WALL_PAL[0], rgb = pal.join(','), hex = 'rgb(' + rgb + ')';
-        c.lineWidth = 2; c.lineCap = 'round'; c.strokeStyle = hex; c.beginPath();
+        const pal = this.wallPal || WALL_PAL[0], zone = Math.max(0, WALL_PAL.findIndex(p => p === pal));
+        const seed = (this.layoutSeed || 7) | 0;
+        const hs = (x, y) => (((Math.imul(x + 11, 73856093) ^ Math.imul(y + 5, 19349663) ^ Math.imul(seed, 83492791)) >>> 0) % 1000) / 1000;
+        const mix = (k, base) => 'rgb(' + pal.map((v, i) => Math.min(255, Math.round(v * k + base[i]))).join(',') + ')';
+        const neon = 'rgb(' + pal.join(',') + ')', neonHi = 'rgb(' + pal.map(v => Math.round(v + (255 - v) * 0.55)).join(',') + ')';
+        const neonLo = mix(0.5, [0, 0, 0]), dark = mix(0.05, [3, 5, 8]);
+        const px = (x, y, w, h, col) => { L.fillStyle = col; L.fillRect(x, y, w, h); };
+        // 1) sombra proyectada (luz arriba-izquierda) y halo punteado de neón por fuera de cada borde expuesto
         for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
             if (!g[r][q]) continue;
-            const x = ox + q * CELL, y = oy + r * CELL;
-            c.fillStyle = 'rgba(' + rgb + ',0.1)'; c.fillRect(x, y, CELL, CELL);
-            c.fillStyle = 'rgba(' + rgb + ',0.35)'; c.fillRect(x + CELL / 2 - 1.5, y + CELL / 2 - 1.5, 3, 3);
-            if (!on(q, r - 1)) { c.moveTo(x, y); c.lineTo(x + CELL, y); }
-            if (!on(q, r + 1)) { c.moveTo(x, y + CELL); c.lineTo(x + CELL, y + CELL); }
-            if (!on(q - 1, r)) { c.moveTo(x, y); c.lineTo(x, y + CELL); }
-            if (!on(q + 1, r)) { c.moveTo(x + CELL, y); c.lineTo(x + CELL, y + CELL); }
+            const x0 = M + q * T, y0 = M + r * T;
+            if (!on(q, r + 1)) px(x0 + 1, y0 + T, T, 3, 'rgba(0,0,0,.42)');
+            if (!on(q + 1, r)) px(x0 + T, y0 + 1, 2, T, 'rgba(0,0,0,.34)');
+            L.fillStyle = 'rgba(' + pal.join(',') + ',.30)';
+            for (let i = 0; i < T; i++) {
+                if (!on(q, r - 1) && (x0 + i) % 2 === 0) L.fillRect(x0 + i, y0 - 1, 1, 1);
+                if (!on(q, r + 1) && (x0 + i + 1) % 2 === 0) L.fillRect(x0 + i, y0 + T, 1, 1);
+                if (!on(q - 1, r) && (y0 + i) % 2 === 0) L.fillRect(x0 - 1, y0 + i, 1, 1);
+                if (!on(q + 1, r) && (y0 + i + 1) % 2 === 0) L.fillRect(x0 + T, y0 + i, 1, 1);
+            }
         }
-        BLUR_OK = true; c.shadowBlur = 15; c.shadowColor = hex; c.stroke(); BLUR_OK = false;
+        // 2) cuerpo de cada celda según la zona
+        const base = mix(0.15, [8, 10, 15]), lite = mix(0.27, [12, 15, 20]), liter = mix(0.38, [16, 20, 26]);
+        for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+            if (!g[r][q]) continue;
+            const x0 = M + q * T, y0 = M + r * T;
+            px(x0, y0, T, T, base);
+            if (zone === 0) {                                              // ladrillo: 2 hileras de ladrillos de 5x5, desfasadas
+                for (let rj = 0; rj < 2; rj++) {
+                    const yy = y0 + rj * 5, off = rj ? 2 : 0;
+                    for (let bi = 0; bi < 2; bi++) {
+                        const bx = x0 + ((bi * 5 + off) % T), v = hs(q * 2 + bi + rj * 7, r * 2 + rj);
+                        const col = v < 0.3 ? base : v < 0.75 ? lite : liter;
+                        const wrap = bx + 4 > x0 + T - 1;                        // el ladrillo desfasado se parte en el borde de la celda
+                        px(bx, yy, wrap ? x0 + T - bx : 4, 4, col);
+                        if (wrap) px(x0, yy, 4 - (x0 + T - bx), 4, col);
+                        px(bx, yy, wrap ? x0 + T - bx : 4, 1, liter);           // brillo superior
+                    }
+                    px(x0, yy + 4, T, 1, dark);                                 // junta horizontal
+                    for (let bi = 0; bi < 2; bi++) px(x0 + ((bi * 5 + off + 4) % T), yy, 1, 4, dark);   // juntas verticales
+                }
+            } else if (zone === 1) {                                       // placas de metal 5x5 con remaches y luces
+                for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+                    const bx = x0 + i * 5, by = y0 + j * 5, v = hs(q * 2 + i, r * 2 + j);
+                    px(bx, by, 4, 4, v < 0.5 ? lite : base);
+                    px(bx, by, 4, 1, liter); px(bx, by, 1, 4, liter);          // bisel claro arriba/izquierda
+                    px(bx + 3, by + 1, 1, 3, dark); px(bx + 1, by + 3, 3, 1, dark);   // bisel oscuro abajo/derecha
+                    px(bx + 1, by + 1, 1, 1, neonHi);                           // remache
+                    if (v > 0.9) px(bx + 2, by + 2, 1, 1, neon);                // luz de estado
+                    px(bx + 4, by, 1, 5, dark); px(bx, by + 4, 5, 1, dark);     // juntas
+                }
+            } else {                                                       // cristal: facetas diagonales y destellos
+                for (let j = 0; j < T; j++) for (let i = 0; i < T; i++) {
+                    const d = (i + j + hs(q, r) * 3 | 0) % 6, col = d < 2 ? base : d < 4 ? lite : liter;
+                    if (col !== base) px(x0 + i, y0 + j, 1, 1, col);
+                }
+                px(x0, y0 + 4, T, 1, dark); px(x0 + 4, y0, 1, T, dark);        // grietas entre facetas
+                if (hs(q + 9, r + 3) > 0.55) px(x0 + 2 + (hs(q, r) * 5 | 0), y0 + 2 + (hs(r, q) * 5 | 0), 1, 1, neonHi);   // destello
+            }
+        }
+        // 3) borde de neón en cada lado expuesto (2 px, con luz arriba/izquierda y sombra abajo/derecha) y esquinas
+        for (let r = 0; r < rows; r++) for (let q = 0; q < cols; q++) {
+            if (!g[r][q]) continue;
+            const x0 = M + q * T, y0 = M + r * T, u = !on(q, r - 1), d = !on(q, r + 1), l = !on(q - 1, r), rt = !on(q + 1, r);
+            if (u) { px(x0, y0, T, 1, neonHi); px(x0, y0 + 1, T, 1, neon); }
+            if (l) { px(x0, y0, 1, T, neonHi); px(x0 + 1, y0 + (u ? 2 : 0), 1, T - (u ? 2 : 0), neon); }
+            if (d) { px(x0, y0 + T - 2, T, 1, neon); px(x0, y0 + T - 1, T, 1, neonLo); }
+            if (rt) { px(x0 + T - 2, y0, 1, T - (d ? 2 : 0), neon); px(x0 + T - 1, y0, 1, T, neonLo); }
+            if (u && l) px(x0, y0, 2, 2, '#ffffff');
+            if (u && rt) px(x0 + T - 1, y0, 1, 1, neonHi);
+            if (d && l) px(x0, y0 + T - 1, 1, 1, neonLo);
+            // esquinas cóncavas: celda con vecinos arriba e izquierda pero vacío en la diagonal
+            if (!u && !l && !on(q - 1, r - 1)) px(x0, y0, 2, 2, neon);
+            if (!u && !rt && !on(q + 1, r - 1)) px(x0 + T - 2, y0, 2, 2, neon);
+            if (!d && !l && !on(q - 1, r + 1)) px(x0, y0 + T - 2, 2, 2, neonLo);
+            if (!d && !rt && !on(q + 1, r + 1)) px(x0 + T - 2, y0 + T - 2, 2, 2, neonLo);
+        }
+        c.imageSmoothingEnabled = false;
+        c.drawImage(lo, 0, 0, lw, lh, ox - M * P, oy - M * P, lw * P, lh * P);
         this.wallKey = key;
     },
     drawWalls(ctx) {
@@ -2817,7 +2937,7 @@ Object.assign(GameEngine.prototype, {
     drawStains(ctx) {                                      // las manchas existían pero nunca se dibujaban
         if (Settings.perf || !this.stains.length) return;
         ctx.save();
-        for (const s of this.stains) { ctx.globalAlpha = 0.35 * Math.min(1, s.life / 2); ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); }
+        for (const s of this.stains) { ctx.globalAlpha = 0.35 * Math.min(1, s.life / 2); ctx.fillStyle = s.color; pixDot(ctx, s.x, s.y, s.r); }
         ctx.restore();
     },
     // CÁMARA: balanceo (inclinación + desfase según la velocidad) y "golpe" de zoom con las sacudidas.
@@ -3554,11 +3674,13 @@ AudioEngine.prototype.startMusic = function () { _startMusicSfx.call(this); this
 // ===================== v5 · CALIDAD ADAPTABLE =====================
 // Si los FPS caen de forma sostenida, el juego baja solo resolución, brillo y partículas (sin tocar la jugabilidad).
 function setQuality(l) { Q.level = l; Q.glow = [1, 0.6, 0.3, 0][l]; document.body.dataset.q = l; }
-let _slow = 0;
+let _slow = 0, _qGrace = 0;      // _qGrace: hasta ese instante (performance.now) no se baja la calidad
 function autoQuality(fps) {
     if (!Settings.autoQ || Settings.perf || !engine || engine.state !== 'PLAYING' || Q.level >= 3) { _slow = 0; return; }
-    _slow = fps < 45 ? _slow + 1 : 0;
-    if (_slow >= 4) { _slow = 0; setQuality(Q.level + 1); resize(); }
+    // Solo baja si va mal de forma SOSTENIDA (3 s) y no justo al empezar la partida ni con la pestaña oculta
+    if (document.hidden || performance.now() < _qGrace) { _slow = 0; return; }
+    _slow = fps < 40 ? _slow + 1 : 0;
+    if (_slow >= 6) { _slow = 0; setQuality(Q.level + 1); resize(); }
 }
 const _applySettings = applySettings;
 applySettings = function () { if (!Settings.autoQ || Settings.perf) setQuality(0); _applySettings(); };
