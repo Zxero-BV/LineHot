@@ -199,3 +199,23 @@ Scripts clásicos que comparten variables globales; se cargan en el orden de `in
 - **Balas** (`GameEngine.prototype.drawBullets`): proyectiles cuadrados en rejilla de 3 u. con estela de 3 píxeles y núcleo blanco.
 - **Objetos**: corazón, escudo, reloj de arena, imán y bomba como iconos pixel art flotando sobre su halo (`ICON` en `Pickup.prototype.draw`).
 - `sw.js` → `CACHE` = `linehot-v20`.
+
+## v1.5 · Pantalla de carga en 2 fases (`extras.js` → `[carga.js]`)
+- **Fase 1/2 · gráficos y sonido**: motor, efectos y **precarga de entidades** (`LH.preloadTasks`): 384 posturas del héroe (`LH.heroRot`), enemigos de cada color (`LH.eArt`), jefes y minijefes en sus 12 giros (`LH.bigArt`), armas y objetos. Antes se generaban al aparecer, en plena partida. Si la precarga tarda más de 2,5 s (equipo justo) el colchón de música sube a 1,6 s.
+- **Fase 2/2 · música**: la barra vuelve a 0 y espera al worker (que se calienta en paralelo desde el inicio). Seguro: entra igualmente a los 30 s.
+- Depuración: al terminar la carga, la consola muestra `[carga] precarga {preloadMs, tareas}` y `audio.music.diag()`. También `LH.boot`.
+- `sw.js` → `linehot-v21`.
+
+## v1.5.1 · El protagonista sigue al ratón siempre
+- `motor.js` → `Player.prototype.update`: sin disparar, `angle` apunta al ratón (si no hay toque reciente ni mando activo). Antes solo giraba con el botón pulsado. `sw.js` → `linehot-v22`.
+
+## v1.6 · Advertencia de epilepsia, modo anti-epilepsia y audio estable (`extras.js` → `[seguridad.js]`)
+- **Advertencia** (`#pEpi` en `index.html`): sale la primera vez (clave `linehotEpiVisto`) con dos botones: ACTIVAR MODO ANTI-EPILEPSIA / ENTIENDO, CONTINUAR. Aviso fijo también en el menú principal.
+- **MODO ANTI-EPILEPSIA** (`Settings.epi`, Ajustes > Juego): fuerza `calm`, sin sacudida, sin fondo al ritmo y sin balanceo + clase `body.epi` (CSS sin parpadeos). Al desactivarlo se restauran los valores anteriores (`Settings.epiPrev`).
+- **AUDIO ESTABLE** (`Settings.audioSafe`, Ajustes > Audio, por defecto sí; recargar para aplicar): `AudioContext` con `latencyHint: 'playback'` (motor.js, `AudioEngine`). `audio.music.diag()` ahora incluye latencias, atascos de audio y estado del contexto.
+- `sw.js` → `linehot-v23`.
+
+## v1.7 · Fondo de menú en pixel art y animaciones del protagonista (`extras.js` → `[animaciones.js]`)
+- **Fondo de menú** (`MB`, canvas `.mb-pix` dentro de `.menu-bg`): escena de 144 px de alto escalada sin suavizar: cielo con estrellas, sol retro con franjas, dos capas de ciudad neón con parallax, suelo en perspectiva y, delante, el protagonista corriendo y disparando a drones/tanques/kamikazes/divisores que llegan y explotan en píxeles. Solo se dibuja con el menú visible (30 FPS), y no en modo RENDIMIENTO. Con REDUCIR DESTELLOS / ANTI-EPILEPSIA: sin parpadeo de estrellas/antenas/fogonazo y movimiento a la mitad. Estilos al final de `estilos.css`.
+- **Protagonista** (`LH.drawHero` reescrito, fotogramas en `LH.heroGrid`): respira al estar quieto (frame 3), retrocede al disparar (frame 4), aparición con línea de escaneo, tinte rojo 0,18 s al recibir daño (`LH.heroTint`), LED rojo + chispas/humo con poca vida, polvo al correr (`LH.heroFx`). La precarga genera ahora 960 variantes (5 fotogramas × 3 LED).
+- `sw.js` → `linehot-v24`.

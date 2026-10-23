@@ -2764,22 +2764,22 @@ LH.heroGrid = (frame, dual, blink) => {
     const set = (x, y, c) => { x = Math.round(x); y = Math.round(y); if (x >= 0 && y >= 0 && x < W && y < H) g[y][x] = c; };
     const rect = (x, y, w, h, c) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) set(x + i, y + j, c); };
     const ell = (ex, ey, rx, ry, fn) => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const u = (x + .5 - ex) / rx, v = (y + .5 - ey) / ry; if (u * u + v * v <= 1) fn(x, y, u, v); } };
-    const st = [0, 3, -3][frame];
+    const br = frame === 3 ? 1 : 0, rc = frame === 4 ? 1 : 0, st = [0, 3, -3, 0, 0][frame];
     rect(8 + st, 3, 5, 3, '#0d1530'); rect(11 + st, 3, 2, 3, '#00b8cc');          // botas (zancada)
     rect(8 - st, 18, 5, 3, '#0d1530'); rect(11 - st, 18, 2, 3, '#00b8cc');
     rect(1, 7, 5, 8, '#4b5170'); rect(1, 7, 5, 2, '#8b91ab'); rect(1, 13, 5, 2, '#2d3250');   // mochila
-    set(2, 10, blink ? '#ffffff' : '#00f3ff'); set(2, 11, blink ? '#00f3ff' : '#087782'); set(3, 10, '#2d3250'); set(3, 11, '#2d3250');
+    set(2, 10, blink === 2 ? '#ff2d3d' : blink ? '#ffffff' : '#00f3ff'); set(2, 11, blink === 2 ? '#a01028' : blink ? '#00f3ff' : '#087782'); set(3, 10, '#2d3250'); set(3, 11, '#2d3250');
     ell(9.5, 10.5, 6, 8.4, (x, y, u, v) => { const l = -u * .45 - v * .85; set(x, y, l > .6 ? '#4a9be0' : l > .15 ? '#2b7fc0' : l > -.35 ? '#1d5f9c' : '#124a78'); });
     rect(7, 2, 6, 2, '#00d9ee'); rect(8, 2, 3, 1, '#9ffcff'); rect(7, 18, 6, 2, '#0098ad'); rect(8, 18, 3, 1, '#00d9ee');   // hombreras
     rect(6, 10, 4, 2, '#5ffbff'); rect(6, 10, 1, 2, '#ffffff');                     // cresta de la mochila al casco
     ell(12.5, 10.5, 5.7, 5.7, (x, y) => { if (g[y][x]) set(x, y, '#0b1a3a'); });
     ell(12.5, 10.5, 4.7, 4.7, (x, y, u, v) => { const l = -u * .4 - v * .85; set(x, y, l > .55 ? '#7d9fe0' : l > .05 ? '#566fba' : l > -.4 ? '#3a4f93' : '#26356b'); });
     for (let y = 7; y < 15; y++) for (let x = 14; x < 19; x++) { const u = (x + .5 - 12.5) / 4.7, v = (y + .5 - 10.5) / 4.7; if (u * u + v * v <= 1 && u > 0.38 && Math.abs(v) < 0.78) set(x, y, '#00f3ff'); }
-    set(16, 8, '#ffffff'); set(16, 9, '#c8ffff'); set(15, 8, '#8afaff');             // brillo de la visera
+    set(16, 8 + br, '#ffffff'); set(16, 9 + br, '#c8ffff'); set(15, 8 + br, '#8afaff'); if (rc) { set(15, 9, '#ffffff'); set(15, 10, '#c8ffff'); set(16, 10, '#ffffff'); }             // brillo de la visera
     rect(10, 9, 4, 3, '#3a4f93'); rect(11, 10, 3, 1, '#5ffbff');                     // placa del casco
     const body = g.map(r => r.map(c => !!c));
     const line = (x0, y0, x1, y1, c, c2) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i++) { const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n; set(x, y, c); set(x, y + 1, c2); } };
-    const hands = dual ? [[18, 5], [18, 15]] : [[17, 8], [17, 12]];
+    const hands = (dual ? [[18, 5], [18, 15]] : [[17, 8], [17, 12]]).map(([a, b]) => [a + br - rc, b]);
     line(11, 4, hands[0][0] - 1, hands[0][1], '#2b7fc0', '#1d5f9c'); line(11, 17, hands[1][0] - 1, hands[1][1] + 1, '#1d5f9c', '#124a78');
     for (const [hx, hy] of hands) { rect(hx, hy, 2, 2, '#5ffbff'); set(hx, hy, '#ffffff'); }
     const out = g.map(r => r.slice());
@@ -2894,12 +2894,187 @@ GameEngine.prototype.drawBullets = function (ctx) {
     };
 }
 
+// ########## [animaciones.js] ##########
+// ---------------------------------------------------------------- ANIMACIONES DEL PROTAGONISTA + FONDO DE MENÚ EN PIXEL ART
+// PROTAGONISTA (sustituye a LH.drawHero de pixel3.js; los fotogramas están en LH.heroGrid):
+//   · respira al estar quieto (frame 3) · retrocede al disparar (frame 4) · zancada al moverse (0-2)
+//   · APARICIÓN: se materializa de arriba abajo con una línea de escaneo al empezar la partida
+//   · GOLPE: se tiñe de rojo 0,18 s al recibir daño · POCA VIDA (<30 %): LED rojo y chispas/humo por la espalda
+//   · polvo en los pies al correr. MODO ANTI-EPILEPSIA / REDUCIR DESTELLOS: LED fijo, sin chispas ni tinte repetido.
+LH.tintCache = new WeakMap();
+LH.heroTint = (cv) => {
+    let o = LH.tintCache.get(cv); if (o) return o;
+    o = document.createElement('canvas'); o.width = cv.width; o.height = cv.height; const g = o.getContext('2d');
+    g.drawImage(cv, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(255,45,61,.7)'; g.fillRect(0, 0, o.width, o.height);
+    LH.tintCache.set(cv, o); return o;
+};
+LH.heroFx = (p, t, moving, low, calm) => {
+    if (moving && t - (p._dustT || 0) > 0.13) { p._dustT = t; engine.spawnParticle(p.x - p.vx * 0.03, p.y - p.vy * 0.03, '#8a8fb8', 1, -p.vx * 0.1, -p.vy * 0.1, 30); }
+    if (low && !calm && t - (p._smkT || 0) > 0.22) {
+        p._smkT = t; const bx = p.x - Math.cos(p.angle) * 9, by = p.y - Math.sin(p.angle) * 9, k = (p._smk = (p._smk || 0) + 1) & 1;
+        engine.spawnParticle(bx, by, k ? '#ff9a3c' : '#6b6f8f', 1, 0, -35, 45);
+    }
+};
+LH.drawHero = (ctx, p) => {
+    ctx.rotate(-p.angle);
+    const t = LH.now(), calm = !!(Settings.calm || Settings.epi), moving = Math.hypot(p.vx || 0, p.vy || 0) > 40;
+    const firing = (p.flashT || 0) > t, low = p.maxHp > 0 && p.hp / p.maxHp < 0.3;
+    if (p._born === undefined) p._born = t;
+    if (p._hp0 !== undefined && p.hp < p._hp0) p._hurtT = t;
+    p._hp0 = p.hp;
+    const age = t - p._born;
+    if (!p._bornFx && age < 0.3) { p._bornFx = 1; engine.spawnParticle(p.x, p.y, '#00f3ff', 14, 0, 0, 160); }
+    if (engine.state === 'PLAYING' && p.hp > 0) LH.heroFx(p, t, moving, low, calm);
+    const frame = firing ? 4 : moving ? [0, 1, 0, 2][Math.floor(t * 10) & 3] : (Math.floor(t * 1.25) & 1 ? 3 : 0);
+    const blink = low ? (calm ? 2 : (Math.floor(t * 2) & 1) * 2) : (calm ? 0 : Math.floor(t * 2) & 1);
+    const q = Math.round((((p.angle % TAU) + TAU) % TAU) / TAU * 32) % 32;
+    let cv = LH.heroRot(q, frame, p.dual ? 1 : 0, blink);
+    if (p._hurtT !== undefined && t - p._hurtT < 0.18) cv = LH.heroTint(cv);
+    const tr = ctx.getTransform(), k = Math.hypot(tr.a, tr.b) || 1, S = Math.max(1, Math.round(2 * k)) / k;
+    ctx.save(); ctx.fillStyle = 'rgba(0,0,0,.34)';                       // sombra en píxeles
+    for (let j = -3; j <= 3; j++) { const hw = Math.round(Math.sqrt(1 - (j / 3.6) ** 2) * 6); ctx.fillRect(-hw * 2 + 4, j * 2 + 10, hw * 4, 2); }
+    ctx.restore();
+    ctx.imageSmoothingEnabled = false;
+    const w = cv.width * S, h = cv.height * S, kick = firing ? -S : 0;
+    if (age < 0.6) {                                                      // aparición: se revela de arriba abajo
+        const rows = Math.max(1, Math.round(cv.height * age / 0.6));
+        ctx.drawImage(cv, 0, 0, cv.width, rows, -w / 2, -h / 2, w, rows * S);
+        ctx.fillStyle = '#9ffcff'; ctx.fillRect(-w / 2, -h / 2 + rows * S, w, S);
+    } else ctx.drawImage(cv, -w / 2 + kick, -h / 2, w, h);
+};
+
+// ---------------------------------------------------------------- FONDO DE MENÚ EN PIXEL ART
+// Escena de 144 px de alto escalada sin suavizar: cielo con estrellas, sol retro con franjas, dos capas de ciudad neón con
+// parallax, suelo en perspectiva y, en primer plano, el protagonista corriendo y disparando a enemigos que llegan.
+const MB = { c: null, g: null, W: 0, H: 144, t: 0, last: 0, en: [], bu: [], pa: [], spawnT: 1, shootT: 0, seed: 1 };
+MB.R = () => (MB.seed = (MB.seed * 16807) % 2147483647) / 2147483647;
+MB.cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+MB.build = () => {
+    const H = MB.H, W = MB.W = Math.max(220, Math.min(420, Math.round(H * innerWidth / innerHeight))), hy = MB.hy = Math.round(H * 0.6), R = MB.R; MB.seed = 4242;
+    MB.c.width = W; MB.c.height = H; MB.g = MB.c.getContext('2d');
+    const sky = MB.sky = MB.cv(W, H), g = sky.getContext('2d'), B = ['#0a001a', '#12002e', '#1d0640', '#2b0a55', '#3d0f68', '#561480', '#7a1a8c', '#a5207f', '#d1346f'];
+    for (let y = 0; y < hy; y++) for (let x = 0; x < W; x++) { const i = y / hy * 8, b = Math.floor(i); g.fillStyle = (i - b > 0.7 && ((x + y) & 1)) ? B[Math.min(8, b + 1)] : B[b]; g.fillRect(x, y, 1, 1); }
+    for (let y = hy; y < H; y++) { g.fillStyle = y - hy < 2 ? '#ff2f8a' : '#0b0220'; g.fillRect(0, y, W, 1); }
+    MB.stars = Array.from({ length: 80 }, () => ({ x: Math.floor(R() * W), y: Math.floor(R() * hy * 0.75), p: R() * 6 }));
+    const r = Math.round(hy * 0.34), sun = MB.sun = MB.cv(r * 2, r * 2), sg = sun.getContext('2d');
+    for (let y = 0; y < r * 2; y++) for (let x = 0; x < r * 2; x++) if (Math.hypot(x + .5 - r, y + .5 - r) <= r) { sg.fillStyle = y < r * 0.7 ? '#ffe600' : y < r * 1.2 ? '#ff9a3c' : y < r * 1.6 ? '#ff4d7a' : '#ff2f8a'; sg.fillRect(x, y, 1, 1); }
+    MB.sunR = r;
+    const layer = (hMin, hMax, col, lit, rim) => {
+        const c = MB.cv(W, Math.round(H * 0.5)), q = c.getContext('2d'); let x = 0;
+        while (x < W) {
+            const w = Math.min(W - x, 8 + Math.floor(R() * 14)), h = Math.floor(hMin + R() * (hMax - hMin)), y = c.height - h;
+            q.fillStyle = col; q.fillRect(x, y, w, h); q.fillStyle = rim; q.fillRect(x, y, w, 1); q.fillStyle = 'rgba(0,0,0,.35)'; q.fillRect(x + w - 1, y, 1, h);
+            for (let wy = y + 3; wy < c.height - 2; wy += 3) for (let wx = x + 2; wx < x + w - 2; wx += 3) if (R() < 0.3) { q.fillStyle = lit[Math.floor(R() * lit.length)]; q.fillRect(wx, wy, 1, 2); }
+            if (R() < 0.35) { q.fillStyle = col; q.fillRect(x + Math.floor(w / 2), y - 4, 1, 4); }
+            x += w + (R() < 0.3 ? 1 : 0);
+        }
+        return c;
+    };
+    MB.far = layer(12, 32, '#1b0a3a', ['#ff2f8a', '#7a1a8c', '#00b8cc'], '#3a1a6a');
+    MB.near = layer(18, 42, '#0b0420', ['#ffe600', '#00f3ff', '#ff2f8a', '#ff9a3c'], '#2a1060');
+    MB.ants = []; for (let i = 0; i < 6; i++) MB.ants.push({ x: Math.floor(R() * W), y: hy - 30 - Math.floor(R() * 28), p: R() * 6 });
+};
+MB.shoot = (a) => { MB.bu.push({ x: MB.hx + 16, y: MB.hy2 - 1, vx: 300, vy: 0 }); MB.hf = 2; };
+MB.burst = (x, y, col) => { for (let i = 0; i < 14; i++) { const a = MB.R() * 6.283, s = 20 + MB.R() * 60; MB.pa.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 25, l: 0.5 + MB.R() * 0.4, c: i % 3 ? col : '#ffffff' }); } };
+MB.frame = (now) => {
+    const dts = (now - MB.last) / 1000; if (dts < 1 / 31) return; MB.last = now;
+    const scr = DOM.screens; if (!scr || scr.classList.contains('hidden') || document.hidden || Settings.perf) return;
+    const dt = Math.min(dts, 0.05), calm = !!(Settings.calm || Settings.epi), W = MB.W, H = MB.H, hy = MB.hy, g = MB.g, sp = calm ? 0.5 : 1;
+    MB.t += dt; const t = MB.t;
+    g.imageSmoothingEnabled = false; g.globalAlpha = 1; g.drawImage(MB.sky, 0, 0);
+    for (const s of MB.stars) { if (!calm && Math.sin(t * 2.2 + s.p) < -0.6) continue; g.fillStyle = s.p > 4.5 ? '#9ffcff' : '#ffffff'; g.fillRect(s.x, s.y, 1, 1); }
+    const r = MB.sunR, sx = Math.round(W / 2 - r), sy = hy - Math.round(r * 2.6);
+    g.drawImage(MB.sun, sx, sy);
+    for (let y = Math.round(r * 0.9), k = 0; y < r * 2; y += 4 + (k++ >> 1)) {                      // franjas del sol, bajan despacio
+        const yy = Math.round(sy + y + ((t * 5 * sp) % (4 + (k >> 1)))); if (yy < hy) { g.drawImage(MB.sky, sx, yy, r * 2, 1, sx, yy, r * 2, 1); }
+    }
+    const off1 = Math.floor((t * 3 * sp) % W), off2 = Math.floor((t * 8 * sp) % W), bh = MB.far.height;
+    g.drawImage(MB.far, -off1, hy - bh); g.drawImage(MB.far, W - off1, hy - bh);
+    g.drawImage(MB.near, -off2, hy - bh + 4); g.drawImage(MB.near, W - off2, hy - bh + 4);
+    if (!calm) for (const a of MB.ants) if (Math.sin(t * 3 + a.p) > 0.2) { const ax = ((a.x - off2) % W + W) % W; g.fillStyle = '#ff2d3d'; g.fillRect(ax, a.y, 1, 1); }
+    // suelo en perspectiva
+    for (let i = -14; i <= 14; i++) for (let y = hy + 2; y < H; y++) { const p = (y - hy) / (H - hy); g.fillStyle = 'rgba(0,243,255,' + (0.18 + 0.5 * p).toFixed(2) + ')'; g.fillRect(Math.round(W / 2 + i * W * 0.07 * p), y, 1, 1); }
+    for (let j = 0; j < 12; j++) { const z = ((j + t * 0.9 * sp) % 12) / 12, y = Math.round(hy + 2 + (H - hy - 2) * Math.pow(z, 2.3)); g.fillStyle = 'rgba(255,47,138,' + (0.2 + 0.5 * z).toFixed(2) + ')'; g.fillRect(0, y, W, 1); }
+    // actores
+    const lane = Math.round(hy + (H - hy) * 0.7), hx = MB.hx = Math.round(W * 0.2), hyy = MB.hy2 = lane - 8;
+    MB.spawnT -= dt; if (MB.spawnT <= 0) {
+        const T = [['drone', '#00f3ff', 1, 30], ['tank', '#b537f2', 3, 22], ['diamond', '#ff3333', 2, 28], ['kami', '#ff7a00', 1, 55], ['split', '#00ff66', 2, 26]][Math.floor(MB.R() * 5)];
+        MB.en.push({ n: T[0], c: T[1], hp: T[2], v: T[3] * sp, x: W + 14, y: lane - 8 + Math.round(MB.R() * 14 - 7), f: 0 }); MB.spawnT = 1.1 + MB.R() * 1.4;
+    }
+    const tgt = MB.en.filter(e => e.x > hx + 20).sort((a, b) => a.x - b.x)[0];
+    MB.shootT -= dt; if (tgt && tgt.x < W * 0.72 && MB.shootT <= 0) { MB.shootT = 0.26; MB.shoot(); }
+    for (const e of MB.en) { e.x -= e.v * dt; e.fl = Math.max(0, (e.fl || 0) - dt); }
+    for (const b of MB.bu) { b.x += b.vx * dt; for (const e of MB.en) if (!e.dead && Math.abs(b.x - e.x) < 9 && Math.abs(b.y - e.y) < 9) { b.x = 9999; e.hp--; e.fl = 0.08; e.x += 2; if (e.hp <= 0) { e.dead = 1; MB.burst(e.x, e.y, e.c); } } }
+    MB.bu = MB.bu.filter(b => b.x < W + 10); MB.en = MB.en.filter(e => !e.dead && e.x > -20);
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(hx - 8, lane + 1, 17, 2);
+    for (const e of MB.en) { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(Math.round(e.x) - 6, lane + 1, 12, 2); const a = LH.eArt(e.n, Math.floor(t * 4 + e.x * 0.05) & 1, e.c, e.fl > 0 ? 1 : 0); g.drawImage(a, Math.round(e.x - a.width / 2), Math.round(e.y - a.height / 2)); }
+    const ang = tgt ? Math.atan2(tgt.y - hyy, tgt.x - hx) : 0, q = Math.round(((ang + 6.2832) % 6.2832) / 6.2832 * 32) % 32;
+    MB.hf = Math.max(0, (MB.hf || 0) - 1);
+    const frame = MB.hf ? 4 : [0, 1, 0, 2][Math.floor(t * 10) & 3], hs = LH.heroRot(q, frame, 0, calm ? 0 : Math.floor(t * 2) & 1), pis = LH.pixSprite('PISTOL');
+    g.drawImage(hs, hx - 18, hyy - 18 + ((Math.floor(t * 10) & 3) % 2 ? 0 : 0));
+    if (pis) { g.save(); g.translate(hx, hyy); g.rotate(ang); g.drawImage(pis, 5, -4); g.restore(); }
+    if (MB.hf && !calm) { g.fillStyle = '#ffffff'; g.fillRect(hx + 17 + Math.round(Math.cos(ang) * 4), hyy - 1 + Math.round(Math.sin(ang) * 4), 3, 3); g.fillStyle = '#ffe600'; g.fillRect(hx + 20, hyy, 2, 1); }
+    for (const b of MB.bu) { g.fillStyle = 'rgba(255,230,0,.5)'; g.fillRect(b.x - 5, b.y, 5, 1); g.fillStyle = '#ffffff'; g.fillRect(b.x - 1, b.y, 3, 1); }
+    for (const p of MB.pa) { p.l -= dt; p.vy += 140 * dt; p.x += p.vx * dt; p.y += p.vy * dt; g.globalAlpha = Math.max(0, Math.min(1, p.l * 2.5)); g.fillStyle = p.c; g.fillRect(Math.round(p.x), Math.round(p.y), 2, 2); }
+    g.globalAlpha = 1; MB.pa = MB.pa.filter(p => p.l > 0);
+};
+MB.loop = (now) => { try { MB.frame(now); } catch (e) { MB.err = e; } requestAnimationFrame(MB.loop); };
+{
+    const _onloadMB = window.onload;
+    window.onload = function () {
+        _onloadMB.call(this);
+        try {
+            const bg = document.querySelector('.menu-bg'); if (!bg || !LH.heroRot || !LH.eArt) return;
+            MB.c = document.createElement('canvas'); MB.c.className = 'mb-pix'; bg.insertBefore(MB.c, bg.firstChild); bg.classList.add('px');
+            for (const cls of ['mb-vig', 'mb-scan']) { const d = document.createElement('div'); d.className = cls; bg.appendChild(d); }
+            MB.build(); let rt = 0; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { try { MB.build(); } catch (e) {} }, 200); });
+            requestAnimationFrame(MB.loop);
+        } catch (e) { console.warn('[fondo]', e); }
+    };
+}
+
+// ########## [seguridad.js] ##########
+// ---------------------------------------------------------------- ADVERTENCIA DE EPILEPSIA + MODO ANTI-EPILEPSIA + AUDIO ESTABLE
+// · La primera vez que se abre el juego aparece #pEpi (clave linehotEpiVisto). Desde ahí o desde Ajustes > Juego se activa
+//   el MODO ANTI-EPILEPSIA (Settings.epi): fuerza calm=true, shake=false, beatBg=false, sway=false y la clase body.epi (sin animaciones
+//   de parpadeo). Al desactivarlo vuelven los valores que tenía el jugador (Settings.epiPrev).
+// · AUDIO ESTABLE (Settings.audioSafe, por defecto sí): ver AudioEngine (latencyHint 'playback').
+if (Settings.epi === undefined) Settings.epi = false;
+if (Settings.audioSafe === undefined) Settings.audioSafe = true;
+LH.EPI_FORCE = { calm: true, shake: false, beatBg: false, sway: false };
+{
+    const _m_apply = applySettings;
+    applySettings = function () {
+        if (Settings.epi) {
+            if (!Settings.epiPrev) Settings.epiPrev = { calm: Settings.calm, shake: Settings.shake, beatBg: Settings.beatBg, sway: Settings.sway };
+            Object.assign(Settings, LH.EPI_FORCE);
+        } else if (Settings.epiPrev) { Object.assign(Settings, Settings.epiPrev); delete Settings.epiPrev; }
+        _m_apply();
+        document.body.classList.toggle('epi', !!Settings.epi);
+    };
+    DOM.screens.addEventListener('click', (ev) => {
+        const b = ev.target.closest && ev.target.closest('#pEpi [data-action]'); if (!b) return;
+        if (b.dataset.action === 'epiSafe') { Settings.epi = true; applySettings(); }
+        try { localStorage.setItem('linehotEpiVisto', '1'); } catch (e) {}
+        Menu.stack = []; Menu.show('pMain');
+    });
+    const _onloadEpi = window.onload;
+    window.onload = function () {
+        _onloadEpi.call(this);
+        try { applySettings(); } catch (e) {}
+        let seen = false; try { seen = localStorage.getItem('linehotEpiVisto') === '1'; } catch (e) {}
+        if (!seen) { Menu.stack = []; Menu.show('pEpi'); }
+    };
+}
+
 // ########## [carga.js] ##########
 // =====================================================================
 //  PANTALLA DE CARGA — precarga todo ANTES de poder jugar (va la ÚLTIMA)
 //
 //  Qué prepara, en orden:
-//   1. Motor gráfico: el juego, los menús, los controles y los sprites con resplandor (warmSprites).
+//   FASE 1/2 · 1. Motor gráfico (warmSprites)  2. Efectos de sonido  3. PRECARGA de entidades: héroe (384 posturas), enemigos por color,
+//            jefes y minijefes (12 giros), armas y objetos → ya no se generan en plena partida (LH.preloadTasks).
+//   FASE 2/2 · Música (abajo). Antes de esto estaba todo en una sola barra.
 //   2. Efectos de sonido: ruido y reverbs (salas) que antes se creaban al primer clic.
 //   3. Música: el worker compila los temas, mide el dispositivo y ENSAYA el render completo
 //      (luchas, jefe, descanso y cruces entre temas). Hasta que no avisa 'ready' no se juega.
@@ -2907,6 +3082,23 @@ GameEngine.prototype.drawBullets = function (ctx) {
 //  Mientras carga se bloquean los clics y teclas (así la música no arranca a medias).
 //  Si algo tarda más de 15 s, el juego entra igualmente (no se queda atascado).
 // =====================================================================
+// ---------------------------------------------------------------- PRECARGA DE ENTIDADES (fase 1 de la pantalla de carga)
+// Estos sprites antes se generaban la primera vez que aparecían (jefe nuevo, color nuevo, girar el héroe…), es decir, EN
+// PLENA PARTIDA, justo cuando más trabaja la música. Ahora se crean todos aquí, por tandas, antes de poder jugar.
+LH.preloadTasks = () => {
+    const T = [], add = (label, fn) => T.push([label, fn]);
+    const cols = new Set(['#ff007f']), bossCols = new Set();
+    try { for (let w = 1; w <= 30; w += 3) for (let t = 0; t <= 9; t++) { const e = makeEnemy(t, 0, 0, w); if (e && e.color) cols.add(e.color); } } catch (e) {}
+    try { cols.add(SNIPE_COL); cols.add(SHIELD_COL); for (const b of LH.BOSSES) { cols.add(b[1]); bossCols.add(b[1]); } } catch (e) {}
+    if (LH.heroRot) for (let q = 0; q < 32; q++) add('PROTAGONISTA (ANIMACIONES)', () => { for (let f = 0; f < 5; f++) for (let d = 0; d < 2; d++) for (let k = 0; k < 3; k++) LH.heroRot(q, f, d, k); });
+    if (LH.eArt) for (const c of cols) add('ENEMIGOS', () => { for (const n of Object.keys(LH.SPR)) for (let f = 0; f < 2; f++) for (let fl = 0; fl < 2; fl++) LH.eArt(n, f, c, fl); });
+    if (LH.bigArt) {
+        for (const c of cols) add('JEFES Y MINIJEFES', () => { for (let st = 0; st < 12; st++) for (const w of ['o', 'i']) { LH.bigArt(false, w, st, c, false); if (bossCols.has(c)) LH.bigArt(true, w, st, c, false); } });
+    }
+    add('ARMAS Y OBJETOS', () => { for (const k of Object.keys(WEAPONS)) { try { LH.pixSprite(k); } catch (e) {} try { Spr.halo(WEAPONS[k].color); } catch (e) {} } });
+    return T;
+};
+
 const Loader = (() => {
     const el = document.getElementById('loader');
     const fill = document.getElementById('ldFill');
@@ -2926,6 +3118,10 @@ const Loader = (() => {
         pctEl.textContent = Math.round(value) + '%';
         if (text) stepEl.textContent = text;
     }
+    function restart(text) {                    // la barra vuelve a 0 (sin animar hacia atrás): empieza la siguiente fase
+        const tr = fill.style.transition; fill.style.transition = 'none'; value = 0; fill.style.width = '0%'; pctEl.textContent = '0%'; void fill.offsetWidth; fill.style.transition = tr;
+        if (text) stepEl.textContent = text;
+    }
     // cede el control al navegador para que se pinte la barra entre pasos
     const tick = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
     const safe = (fn) => { try { return fn(); } catch (e) { console.warn('[carga]', e); } };
@@ -2942,27 +3138,35 @@ const Loader = (() => {
     }
 
     async function run() {
-        // 1. Motor gráfico (el juego ya se creó en window.onload; aquí se calientan sus sprites)
-        set(8, 'CARGANDO MOTOR…'); await tick();
+        // FASE 1/2 · GRÁFICOS Y SONIDO (el worker de música ya está calentándose en paralelo desde que se creó el audio)
+        set(6, 'FASE 1/2 · CARGANDO MOTOR…'); await tick();
         safe(() => { if (typeof Spr !== 'undefined') Spr.sync(); });
         safe(() => warmSprites());
-        set(35, 'PREPARANDO GRÁFICOS…'); await tick();
-
-        // 2. Efectos de sonido (ruido + reverbs)
-        set(40, 'CARGANDO EFECTOS…'); await tick();
+        set(20, 'FASE 1/2 · PREPARANDO GRÁFICOS…'); await tick();
         safe(() => audio._sfxInit());
-        set(55, 'CARGANDO MÚSICA…'); await tick();
+        set(30, 'FASE 1/2 · CARGANDO EFECTOS…'); await tick();
+        // sprites que antes se creaban en plena partida: se hacen por tandas de ~10 ms para que se vea avanzar la barra
+        const tasks = safe(() => LH.preloadTasks()) || [], tp = performance.now();
+        for (let i = 0; i < tasks.length; i++) {
+            safe(tasks[i][1]);
+            if (performance.now() - tp > 25 * (i + 1) || i === tasks.length - 1 || i % 4 === 0) { set(30 + 70 * (i + 1) / tasks.length, 'FASE 1/2 · ' + tasks[i][0] + '…'); await tick(); }
+        }
+        const preMs = performance.now() - tp; LH.boot = { preloadMs: Math.round(preMs), tareas: tasks.length };
+        if (preMs > 2500 && audio.music) { audio.music.look = Math.max(audio.music.look, 1.6); LH.boot.equipoJusto = true; }   // equipo lento: más colchón de música
+        set(100, 'FASE 1/2 · LISTO'); await tick();
 
-        // 3. Música: espera al aviso del worker; mientras, la barra avanza despacio hasta el 95 %
+        // FASE 2/2 · MÚSICA: espera al aviso del worker; mientras, la barra avanza despacio hasta el 95 %
+        restart('FASE 2/2 · CARGANDO MÚSICA…'); await tick();
         const slow = setTimeout(() => el.classList.add('slow'), 4000);
         const creep = setInterval(() => { if (value < 95) set(value + (95 - value) * 0.06); }, 150);
         const ok = await new Promise(res => audio.music.whenReady(res, 15000));
         clearTimeout(slow); clearInterval(creep);
         el.classList.remove('slow');
-        set(97, 'AFINANDO…'); await tick();
+        set(97, 'FASE 2/2 · AFINANDO…'); await tick();
+        safe(() => console.info('[carga] precarga', LH.boot, 'música:', audio.music.diag()));
         await finish(ok);
     }
-    setTimeout(() => finish(false), 20000);     // seguro: si algo falla antes de cargar, la pantalla no se queda para siempre
+    setTimeout(() => finish(false), 30000);     // seguro: si algo falla antes de cargar, la pantalla no se queda para siempre
     return { run };
 })();
 

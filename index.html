@@ -108,8 +108,21 @@
                     <button class="btn btn-sm btn-ghost hidden" data-action="install" id="installBtn"><svg class="ico" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.6"/></svg><span>INSTALAR</span></button>
                 </div>
             </div>
+            <p class="epi-note">⚠ Contiene luces intermitentes · Ajustes › Modo anti-epilepsia</p>
             <p class="ver">LINEHOT v1.3</p>
             <p class="footer-hint kbd-only">ENTER jugar · ↑ ↓ navegar · ESC atrás</p>
+        </section>
+
+        <!-- ============ ADVERTENCIA DE EPILEPSIA ============ -->
+        <section class="panel card hidden" id="pEpi">
+            <header class="card-head"><h2 class="panel-title epi-title">⚠ ADVERTENCIA</h2></header>
+            <div class="card-body">
+                <p class="epi-text"><b>AVISO DE EPILEPSIA FOTOSENSIBLE.</b> Este juego contiene luces intermitentes, destellos, imágenes que parpadean y un fondo que late con la música. Un pequeño porcentaje de personas puede sufrir convulsiones o pérdida de conocimiento al ver ciertos patrones de luz, incluso sin antecedentes.</p>
+                <p class="epi-text">Si tú o alguien de tu familia tiene antecedentes de epilepsia, o notas mareo, visión alterada, espasmos o confusión mientras juegas, <b>deja de jugar de inmediato y consulta a un médico.</b></p>
+                <p class="epi-text epi-small">Puedes activar el MODO ANTI-EPILEPSIA ahora o más tarde en AJUSTES: quita destellos, parpadeos, sacudidas y el fondo al ritmo.</p>
+                <button class="btn btn-epi" data-action="epiSafe"><span>ACTIVAR MODO ANTI-EPILEPSIA</span></button>
+                <button class="btn btn-sm btn-ghost" data-action="epiOk"><span>ENTIENDO, CONTINUAR</span></button>
+            </div>
         </section>
 
         <!-- ============ AJUSTES ============ -->
@@ -127,6 +140,7 @@
                     <button class="row switch" data-action="toggle" data-key="tutorial" role="switch"><span class="row-label">TUTORIAL INTERACTIVO<small>Consejos en pantalla durante la partida (se apaga solo al terminarlo)</small></span><span class="sw"></span></button>
                     <button class="row switch" data-action="toggle" data-key="shake" role="switch"><span class="row-label">SACUDIDA DE PANTALLA<small>Temblor en explosiones y golpes</small></span><span class="sw"></span></button>
                     <button class="row switch" data-action="toggle" data-key="sway" role="switch"><span class="row-label">BALANCEO DE CÁMARA<small>La vista se inclina suavemente al moverte</small></span><span class="sw"></span></button>
+                    <button class="row switch" data-action="toggle" data-key="epi" role="switch"><span class="row-label">MODO ANTI-EPILEPSIA<small>Sin destellos, parpadeos, sacudidas ni fondo al ritmo (bloquea esos ajustes)</small></span><span class="sw"></span></button>
                     <button class="row switch" data-action="toggle" data-key="calm" role="switch"><span class="row-label">REDUCIR DESTELLOS<small>Sin parpadeos ni cortes de color; sacudidas más suaves</small></span><span class="sw"></span></button>
                     <button class="row switch" data-action="toggle" data-key="vibrate" role="switch"><span class="row-label">VIBRACIÓN<small>Solo en dispositivos compatibles</small></span><span class="sw"></span></button>
                     <div class="danger-zone">
@@ -134,6 +148,7 @@
                     </div>
                 </div>
                 <div class="tab-pane hidden" data-pane="audio">
+                    <button class="row switch" data-action="toggle" data-key="audioSafe" role="switch"><span class="row-label">AUDIO ESTABLE<small>Más margen contra cortes de música (algo más de retraso en efectos). Recarga la página para aplicarlo</small></span><span class="sw"></span></button>
                     <label class="row slider"><span class="row-label">VOLUMEN GENERAL</span><span class="val-pill" id="volVal">60%</span>
                         <input type="range" id="volRange" min="0" max="1" step="0.05"></label>
                     <label class="row slider"><span class="row-label">MÚSICA</span><span class="val-pill" id="musicVal">60%</span>

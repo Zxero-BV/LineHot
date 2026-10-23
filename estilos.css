@@ -902,3 +902,23 @@ body.touch #weaponAmmo { font-size: 11px; }
 .title.over .t-line { text-shadow: 4px 4px 0 #5a0d0d, 8px 8px 0 #000; }
 .panel-title { font-family: var(--px); font-weight: 400; font-size: clamp(1rem, 4vh, 1.5rem); letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
 .tagline { font-family: var(--px); font-size: 7px; letter-spacing: 3px; }
+
+/* ---- Advertencia de epilepsia y MODO ANTI-EPILEPSIA ---- */
+#pEpi .epi-title { color: #ffe600; text-shadow: 0 0 14px rgba(255, 230, 0, .6); }
+#pEpi .epi-text { margin: 0 0 12px; line-height: 1.5; font-size: .95rem; color: #dfe6ff; text-align: left; }
+#pEpi .epi-text b { color: #ffe600; }
+#pEpi .epi-small { font-size: .82rem; opacity: .8; }
+#pEpi .btn { width: 100%; margin-top: 8px; }
+#pEpi .btn-epi { border-color: #00ff66; color: #00ff66; }
+.epi-note { margin: 8px 0 0; font-size: .68rem; letter-spacing: 1px; color: #ffe600; opacity: .75; text-align: center; }
+body.epi .crt-flicker, body.epi .chromatic-glitch, body.epi #hurt, body.epi .combo-container.hot { animation: none !important; }
+body.epi .chromatic-glitch { text-shadow: none; transform: none; }
+body.epi [data-key="calm"], body.epi [data-key="shake"], body.epi [data-key="sway"] { opacity: .5; }
+
+/* ---- Fondo de menú en pixel art ---- */
+.mb-pix { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.menu-bg.px .mb-grid { display: none; }
+.menu-bg.px .mb-glow { opacity: .35; }
+.mb-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(5, 1, 10, .6) 0%, rgba(5, 1, 10, .3) 42%, transparent 78%); }
+.mb-scan { position: absolute; inset: 0; background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, .16) 0 1px, transparent 1px 3px); }
+body.epi .mb-scan, body.calm .mb-scan { opacity: .5; }

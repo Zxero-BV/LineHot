@@ -1000,8 +1000,10 @@ class MusicEngine {
     getState() { return this.state; }             // depuración: audio.music.getState()
     // Depuración: en la consola escribe  audio.music.diag()  (si la música se corta, copia lo que salga)
     diag() {
-        return { motor: this.worker ? 'worker' : 'hilo principal', cortes: this.resyncs, colchon_s: this.look,
-                 cpu_musica: +(this.cpu || 0).toFixed(2), cola: this.inflight, estado: this.state };
+        const c = this.ctx;
+        return { motor: this.worker ? 'worker' : 'hilo principal', cortes: this.resyncs, atascos_audio: (this.stalls || []).length, colchon_s: this.look,
+                 cpu_musica: +(this.cpu || 0).toFixed(2), cola: this.inflight, latencia_base_ms: Math.round((c.baseLatency || 0) * 1000),
+                 latencia_salida_ms: Math.round((c.outputLatency || 0) * 1000), hz: c.sampleRate, ctx: c.state, estado: this.state };
     }
 
     // ================= programación en el contexto de audio =================
@@ -1141,7 +1143,10 @@ MUSIC_ORDER.push('mini');
 // Motor de Audio
 class AudioEngine {
     constructor() {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // AUDIO ESTABLE (por defecto): buffer de salida más grande ('playback'). Con 'interactive' (~10 ms) el hilo de audio
+        // del navegador se queda sin tiempo con cualquier tirón de CPU y la música suena a trompicones.
+        const AC = window.AudioContext || window.webkitAudioContext;
+        try { this.ctx = new AC({ latencyHint: Settings.audioSafe === false ? 'interactive' : 'playback' }); } catch (e) { this.ctx = new AC(); }
         this.master = this.ctx.createGain();
         this.master.gain.value = 0.6;
         
@@ -3844,6 +3849,8 @@ Player.prototype.update = function (dt) {
         if (Settings.aimAssist) aim = engine.assistAim(this.x, this.y, aim);
         this.angle = aim;
         if (this.fireCooldown <= 0) this.shoot();
+    } else if (Input.mouse.cx !== undefined && Date.now() - Input.lastTouch >= 700 && !(typeof LH !== 'undefined' && LH.GP && LH.GP.active)) {
+        this.angle = Math.atan2(Input.mouse.y - this.y, Input.mouse.x - this.x);   // sin disparar: el protagonista también sigue al ratón
     }
 
     setCss(DOM.healthFill, 'width', pct(Math.max(0, (this.hp / this.maxHp) * 100)));
