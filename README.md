@@ -29,7 +29,7 @@ Se juega en el navegador (PC, móvil, mando), se puede instalar como app (PWA) y
 Dentro de `motor.js` y de cada archivo de `js/` cada sección empieza con una marca `// ########## [nombre.js] ##########` (usa Ctrl+F). El orden de las secciones importa: unas envuelven funciones de otras.
 
 ## Panel de administrador (pruebas)
-F2 en PC, 5 toques en la esquina superior izquierda en móvil, o `?admin` en la dirección. Invoca jefes y enemigos, salta de oleada, da armas/objetos/mejoras, invulnerabilidad, munición infinita y control del tiempo. Las partidas con el panel no cuentan para récords ni ranking. Detalles en `MAPA.md`.
+F2 en PC o `?admin` en la dirección. **En móvil está oculto**: toca 7 veces el texto «LINEHOT v…» del menú principal y escribe el código (`ADMIN_PIN` en `js/13b-admin.js`, por defecto `2580`; también vale `?admin=CÓDIGO`). Invoca jefes y enemigos, salta de oleada, da armas/objetos/mejoras, invulnerabilidad, munición infinita y control del tiempo. Las partidas con el panel no cuentan para récords ni ranking. Detalles en `MAPA.md`.
 
 ## Probar en local
 Necesita un servidor web (no funciona abriendo el archivo con doble clic):

@@ -1,4 +1,10 @@
-# Mapa del proyecto (LineHot 2.15)
+# Mapa del proyecto (LineHot 2.16)
+
+> ## v2.16 · panel de arma con armas largas y panel de admin oculto en móvil
+> - **Bug del railgun:** el estado «RECARGANDO / LISTO» y los modificadores del arma ensanchaban el panel y lo sacaban de la pantalla. En móvil el texto es corto (`8 ..` recargando / `8 OK` listo; `motor.js`) y el panel tiene ancho máximo con texto que se ajusta (`estilos.css`, final).
+> - **Panel de admin en móvil:** ya no hay pestaña «ADM» ni el gesto de 5 toques en la esquina. Se desbloquea tocando 7 veces el texto «LINEHOT v…» del menú principal y escribiendo el código `ADMIN_PIN` (arriba de `js/13b-admin.js`, por defecto `2580`; cámbialo). También vale `?admin=CÓDIGO`. El desbloqueo dura solo la sesión de la pestaña. En PC sigue F2 / `?admin`.
+> - `sw.js` → `linehot-v48`; `index.html` carga con `?v=2.16`.
+
 
 > ## v2.15 · interfaz móvil (solo `estilos.css`, capa `[movil3.css]` al final)
 > - **Menús que no se cortan:** `#screens` usaba `justify-content:center`, que en pantallas bajas dejaba la parte superior inalcanzable; ahora el panel se centra con `margin:auto` y se puede desplazar hasta arriba.

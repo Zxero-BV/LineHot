@@ -1,6 +1,6 @@
 // Service worker de LineHot: red primero (siempre la versión nueva si hay conexión) y copia local para jugar sin conexión.
 // Si cambias archivos del juego y quieres forzar limpieza de la copia antigua, sube el número de CACHE.
-const CACHE = 'linehot-v47', FONTS = 'linehot-fuentes';   // la tipografía (Google Fonts) se guarda aparte para jugar sin conexión
+const CACHE = 'linehot-v48', FONTS = 'linehot-fuentes';   // la tipografía (Google Fonts) se guarda aparte para jugar sin conexión
 const FILES = ['./', 'index.html', 'estilos.css', 'nube.js', 'motor.js', 'js/01-base.js', 'js/02-enemigos.js', 'js/03-jefe-null-signal.js', 'js/04-ritmo-y-rangos.js', 'js/05-armas.js', 'js/06-pixel-art.js', 'js/07-animaciones.js', 'js/08-sistema.js', 'js/09-jefes-y-minijefes.js', 'js/10-armas-inventario.js', 'js/11-partida.js', 'js/12-dificultad.js', 'js/12b-jefes-unicos.js', 'js/13-ranking.js', 'js/13b-admin.js', 'js/14-carga.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'musica/happy.mp3', 'musica/shock.mp3', 'musica/addict.mp3', 'musica/epic.mp3', 'musica/boss.mp3', 'musica/abyss.mp3', 'musica/mini.mp3', 'musica/techno.mp3', 'musica/incoming.mp3'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then(c => Promise.all(FILES.map(f => c.add(f).catch(() => {})))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {

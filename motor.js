@@ -3488,7 +3488,7 @@ GameEngine.prototype.postUpdate = function (dt) {
         setCss(UI2.bossFill, 'width', pct(Math.max(0, this.bossHp * 100)));
     } else this.bossHp = 1;
 
-    if (p.weapon.type === 'rail') setText(DOM.weaponAmmo, p.ammo + (p.fireCooldown > 0 ? '  RECARGANDO' : '  LISTO'));
+    if (p.weapon.type === 'rail') setText(DOM.weaponAmmo, p.ammo + (isTouchUI() ? (p.fireCooldown > 0 ? ' ..' : ' OK') : (p.fireCooldown > 0 ? '  RECARGANDO' : '  LISTO')));
 
     for (const s of this.slashes) {
         s.life -= dt;

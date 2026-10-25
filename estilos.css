@@ -1284,3 +1284,15 @@ body.touch #uiLayer, body.touch #gameWrapper { -webkit-user-select: none; user-s
 @media (orientation: landscape) and (max-height: 520px) {
     body.touch #hintBar { max-width: min(calc(100% - 2 * (var(--sar) + 150px)), 560px); }
 }
+
+/* v2.15 · el panel de arma nunca se sale de la pantalla (armas largas como el railgun, con texto de estado o modificadores) */
+.weapon-info { box-sizing: border-box; max-width: min(56vw, 230px); grid-template-columns: auto minmax(0, 1fr); }
+.weapon-info .weapon-text, .weapon-info #weaponAmmo { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+body.touch .weapon-info #weaponIcon { width: 40px; height: auto; }
+.weapon-info #wmods { min-width: 0; overflow-wrap: anywhere; }
+.weapon-info #wslots { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-width: 0; }
+.weapon-info .wslot { min-width: 0; overflow: hidden; }
+.weapon-info .wslot canvas { max-width: 60%; }
+/* texto de versión: zona de toque para el desbloqueo del panel de pruebas (no se nota) */
+#pMain .ver { pointer-events: auto; padding: 8px 18px; -webkit-user-select: none; user-select: none; }
+body.touch .weapon-info #weaponAmmo { white-space: nowrap; }
