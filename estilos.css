@@ -1225,3 +1225,62 @@ body.touch #wmods { font-size: 8px; }
 .rk-input:focus { border-color: var(--neon-cyan, #00f0ff); box-shadow: 0 0 10px rgba(0, 240, 255, .45); }
 .rk-head .btn.on { border-color: var(--neon-yellow, #ffe600); color: var(--neon-yellow, #ffe600); }
 .row.static.rk-me { border-color: var(--neon-yellow, #ffe600); background: rgba(255, 230, 0, .08); }
+
+/* ########## [movil3.css] ########## v2.15 · interfaz móvil: HUD sin solapes, menús que caben en pantallas pequeñas */
+
+/* centrado "seguro": si el contenido es más alto que la pantalla se puede desplazar hasta arriba (con justify-content:center se cortaba la cabeza) */
+#screens { justify-content: flex-start; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#screens > .panel { margin-top: auto; margin-bottom: auto; }
+body.touch .btn, body.touch .tab, body.touch .row, body.touch .up-card { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+body.touch .btn { min-height: 44px; }
+body.touch #uiLayer, body.touch #gameWrapper { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+
+/* ---------- vertical ---------- */
+@media (orientation: portrait) and (max-width: 700px) {
+    /* panel de arma más compacto; aviso del tutorial y barra de jefe debajo de él (antes se pisaban) */
+    body.touch .weapon-info { min-width: 108px; padding: 10px 6px 5px; }
+    body.touch #wslots { margin-top: 4px; gap: 4px; }
+    body.touch .wslot { min-height: 26px; padding-top: 8px; }
+    body.touch #hintBar { top: calc(max(var(--pad), var(--sat)) + 172px); max-width: min(92%, 420px); }
+    body.touch #bossBar { top: calc(max(var(--pad), var(--sat)) + 190px); width: min(88%, 420px); }
+    #uiLayer:has(#bossBar:not(.hidden)) #hintBar { top: calc(max(var(--pad), var(--sat)) + 226px); }
+    body.touch #fxChips { top: calc(max(var(--pad), var(--sat)) + 236px); }
+}
+
+/* móviles cortos en vertical (360×640, iPhone SE…): menú principal compacto y completo */
+@media (orientation: portrait) and (max-width: 700px) and (max-height: 720px) {
+    #pMain { gap: 8px; padding: 10px 12px 6px; min-height: 0; }
+    #pMain .title { flex-direction: row; justify-content: center; gap: .28em; font-size: clamp(1.7rem, 10vw, 2.5rem); letter-spacing: 2px; }
+    #pMain .tagline { margin-top: 8px; }
+    #pMain .stat-row { margin-top: 0; gap: 6px; }
+    #pMain .stat { padding: 6px 6px; } #pMain .stat-v { font-size: 12px; margin-top: 4px; }
+    #pMain .subtitle { font-size: .72rem; line-height: 1.35; }
+    #pMain .rotate-hint { margin: 0; padding: 6px 8px; font-size: .68rem; }
+    #pMain .menu-col { margin-top: 4px; gap: 7px; } #pMain .btn-row { gap: 7px; }
+    #pMain .btn { min-height: 42px; } #pMain .btn-main { min-height: 50px; }
+    #pMain .btn.has-sub { padding-top: 5px; padding-bottom: 5px; }
+    #pMain .epi-note { margin: 0; font-size: .6rem; } #pMain .ver { margin: 0; }
+    #pPause, #pOver { gap: 10px; padding: 10px 12px; }
+    #pOver .title { font-size: clamp(1.7rem, 10vw, 2.4rem); }
+    #pOver .stat-grid { gap: 8px; }
+}
+
+/* ---------- horizontal en móviles pequeños (≤ 720 px de ancho): la columna izquierda se encoge y los botones ya no se salen ---------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 720px) {
+    #pMain, #pOver, #pPause { grid-template-columns: minmax(0, 1fr) minmax(200px, 270px); column-gap: 14px; }
+    #pMain .stat, #pOver .stat, #pPause .stat { min-width: 0; padding: 5px 6px; }
+    #pMain .stat-row { gap: 6px; width: 100%; }
+    #pMain .title { font-size: clamp(1.5rem, 11vh, 2.4rem); }
+    #pMain .subtitle { font-size: .68rem; max-width: 100%; }
+    #pMain .btn-row .btn, #pMain .btn-main { min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; }
+    #pMain .btn-row .btn { font-size: clamp(8px, 1.7vw, 11px); letter-spacing: 0; gap: 4px; }
+    #pMain .btn-row .btn span { font-size: inherit; letter-spacing: inherit; }
+    #pMain .btn-row .btn .ico { display: none; }
+    #pOver .title { font-size: clamp(1.2rem, 8vh, 1.8rem); }
+    #pOver .stat-grid { width: 100%; }
+}
+
+/* horizontal: el aviso no se acerca al panel de arma (arriba a la derecha) */
+@media (orientation: landscape) and (max-height: 520px) {
+    body.touch #hintBar { max-width: min(calc(100% - 2 * (var(--sar) + 150px)), 560px); }
+}

@@ -111,7 +111,7 @@
                 </div>
             </div>
             <p class="epi-note">⚠ Contiene luces intermitentes · Ajustes › Modo anti-epilepsia</p>
-            <p class="ver">LINEHOT v2.14</p>
+            <p class="ver">LINEHOT v2.15</p>
             <p class="footer-hint kbd-only">ENTER jugar · ↑ ↓ navegar · ESC atrás</p>
         </section>
 
@@ -342,7 +342,7 @@
         function cargar() {
             ARCHIVOS.forEach(function (f) {
                 var s = document.createElement('script');
-                s.src = f + '?v=2.14'; s.async = false;                       // descarga en paralelo, se ejecutan en orden
+                s.src = f + '?v=2.15'; s.async = false;                       // descarga en paralelo, se ejecutan en orden
                 s.onload = s.onerror = function () { if (++hechos === ARCHIVOS.length) fin(); };
                 document.body.appendChild(s);
             });

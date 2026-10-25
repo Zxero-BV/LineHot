@@ -1,4 +1,13 @@
-# Mapa del proyecto (LineHot 2.14)
+# Mapa del proyecto (LineHot 2.15)
+
+> ## v2.15 · interfaz móvil (solo `estilos.css`, capa `[movil3.css]` al final)
+> - **Menús que no se cortan:** `#screens` usaba `justify-content:center`, que en pantallas bajas dejaba la parte superior inalcanzable; ahora el panel se centra con `margin:auto` y se puede desplazar hasta arriba.
+> - **360×640 / iPhone SE en vertical:** el menú principal (título en una línea, huecos más pequeños) y las pantallas de pausa y fin de partida caben enteros.
+> - **Horizontal pequeño (≤720 px, p. ej. 640×360):** la columna izquierda se encoge (`minmax(0,1fr)`) y los botones de la derecha ya no se salen de la pantalla (antes «CONTROLES» y «MODIFICADORES» se cortaban).
+> - **HUD vertical sin solapes:** el aviso del tutorial y la barra de jefe bajan debajo del panel de arma (antes lo pisaban); el panel de arma es más compacto. En horizontal el aviso no invade el panel de arma.
+> - Toques: `touch-action: manipulation`, sin resaltado ni selección de texto, botones ≥ 44 px.
+> - `sw.js` → `linehot-v47`; `index.html` carga con `?v=2.15`.
+
 
 > ## v2.14 · música: pantalla de mejoras, cruces y abyss nuevo
 > - **Pantalla de mejoras:** ya no cambia de tema. El que sonaba en la oleada sigue, más bajo (−60 % de volumen) y amortiguado (filtro ~1,3 kHz), con entrada/salida suaves (`MusicEngine.menuF`, `setMenu()`). El tema `misterio` se quitó del juego (su fórmula sigue en `herramientas/fuentes_temas.js`, sin MP3).
