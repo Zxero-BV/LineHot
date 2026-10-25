@@ -2,7 +2,7 @@
 // =====================================================================
 //  v2.11 — PANEL DE ADMINISTRADOR (herramienta de pruebas)
 //
-//  Cómo abrirlo:   · PC: tecla F2 (o la tecla ` )          · Móvil: 5 toques rápidos en la esquina superior izquierda
+//  Cómo abrirlo:   · PC: tecla F2 (o la tecla ` )          · Móvil (v2.15): 7 toques en «LINEHOT v…» del menú principal + código (ADMIN_PIN), o ?admin=CÓDIGO
 //                  · o añade ?admin a la dirección (…/index.html?admin)
 //  Una vez activado queda una pestañita «ADM» en el borde izquierdo (se guarda en localStorage). Para quitarla: pestaña AJUSTES → DESACTIVAR.
 //  Consola:        LH.adm.toggle()  ·  LH.adm.boss('ECLIPSE', 20)  ·  LH.adm.go(25)
@@ -28,8 +28,14 @@
         runUsed: false, snap: null
     };
     const G = () => engine;
-    const store = (v) => { try { v === null ? localStorage.removeItem(KEY) : localStorage.setItem(KEY, v); } catch (e) {} };
-    const enabled = () => { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } };
+    // v2.15 · en el móvil el panel NO se ofrece por defecto: ni pestaña «ADM» ni gesto en la esquina.
+    //   Para desbloquearlo hay que tocar 7 veces seguidas el texto «LINEHOT v…» del menú principal y escribir el código ADMIN_PIN
+    //   (o abrir la dirección con ?admin=CÓDIGO). El desbloqueo dura solo la sesión de la pestaña (sessionStorage); al cerrar el juego vuelve a quedar oculto.
+    //   En PC no cambia nada: F2 o ?admin. Cambia el código aquí:
+    const ADMIN_PIN = '2580';
+    const isTouch = () => document.body.classList.contains('touch') || (window.matchMedia && matchMedia('(pointer: coarse)').matches);
+    const store = (v) => { try { const st = isTouch() ? sessionStorage : localStorage; v === null ? st.removeItem(KEY) : st.setItem(KEY, v); } catch (e) {} };
+    const enabled = () => { try { return (isTouch() ? sessionStorage : localStorage).getItem(KEY) === '1'; } catch (e) { return false; } };
     const playing = () => !!(engine && engine.player && engine.state === 'PLAYING');
     const need = () => { if (playing()) { A.mark(); return true; } LH.toast('PRIMERO EMPIEZA UNA PARTIDA'); return false; };
     const hpFor = (w) => (LH.difHp ? LH.difHp(w) : 1 + w * 0.07);
@@ -240,7 +246,7 @@
             <h4>MODIFICADORES</h4><div class="ag">${LH.MUTS.map(m => bt('mut', m.id, m.name, !!(engine && engine.mut && engine.mut[m.id]))).join('')}</div>
             <h4>MÚSICA (sección)</h4><div class="ag c4">${['fight', 'boss', 'mini', 'calm'].map(s => bt('sec', s, s.toUpperCase())).join('')}</div>
             <h4>PANEL</h4><div class="ag">${bt('off', undefined, 'DESACTIVAR PANEL', false, 'bad')}${bt('close', undefined, 'CERRAR')}</div>
-            <p class="hint">Reabrir: F2 · 5 toques en la esquina superior izquierda · ?admin</p>`
+            <p class="hint">Reabrir: F2 (PC) · en móvil, 7 toques en la versión del menú + código</p>`
     };
 
     function info() {
@@ -263,6 +269,7 @@
         head();
     }
     A.show = (v) => {
+        if (!A.open && v !== false && isTouch() && !enabled()) return;             // en móvil, bloqueado hasta introducir el código
         A.open = v === undefined ? !A.open : !!v;
         if (A.open) { store('1'); paint(); }
         panel.classList.toggle('hide', !A.open);
@@ -322,14 +329,29 @@
     window.addEventListener('keydown', (e) => {
         if (e.key === 'F2' || (e.key === '`' && !(e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)))) { e.preventDefault(); A.show(); }
     });
+    // móvil: 7 toques seguidos en el texto de versión del menú principal + código (nunca durante la partida)
     let taps = [];
-    window.addEventListener('pointerdown', (e) => {                       // móvil: 5 toques rápidos en la esquina superior izquierda
-        if (e.clientX > 70 || e.clientY > 70) return;
-        const t = performance.now(); taps = taps.filter(x => t - x < 1800); taps.push(t);
-        if (taps.length >= 5) { taps = []; A.show(true); }
+    const unlockTouch = (code) => {
+        if (String(code || '').trim() !== ADMIN_PIN) { LH.toast('CÓDIGO INCORRECTO'); return false; }
+        store('1'); tab.classList.remove('hide'); A.show(true); return true;
+    };
+    document.addEventListener('pointerdown', (e) => {
+        const v = e.target.closest && e.target.closest('.ver'); if (!v || !isTouch()) return;
+        const t = performance.now(); taps = taps.filter(x => t - x < 4000); taps.push(t);
+        if (taps.length >= 7) {
+            taps = [];
+            if (enabled()) { A.show(true); return; }
+            let c = null; try { c = window.prompt('CÓDIGO'); } catch (x) {}
+            if (c !== null) unlockTouch(c);
+        }
     }, true);
-    if (/[?&]admin\b/.test(location.search)) store('1');
+    const urlPin = (location.search.match(/[?&]admin=([^&]*)/) || [])[1];
+    const urlAdmin = /[?&]admin\b/.test(location.search);
+    if (urlAdmin) {
+        if (!isTouch()) store('1');
+        else if (urlPin && decodeURIComponent(urlPin) === ADMIN_PIN) store('1');     // en móvil, ?admin solo vale con el código
+    }
     if (enabled()) tab.classList.remove('hide');
     setInterval(() => { if (A.open) head(); }, 250);
-    if (/[?&]admin\b/.test(location.search)) setTimeout(() => A.show(true), 400);
+    if (urlAdmin && enabled()) setTimeout(() => A.show(true), 400);
 })();
